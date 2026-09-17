@@ -1,0 +1,7 @@
+[workspace]
+members = ["crates/app", "crates/customers", "crates/settings", "crates/shared", "crates/sidebar"]
+
+[workspace.dependencies]
+gpui-kit = "0.6"
+sqlx = {version = "0.9", features = ["sqlite", "runtime-tokio"]}
+thiserror = "2.0.20"

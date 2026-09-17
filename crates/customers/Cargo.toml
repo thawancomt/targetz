@@ -1,0 +1,10 @@
+[package]
+name = "customers"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gpui-kit.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+shared = { path = "../shared"}

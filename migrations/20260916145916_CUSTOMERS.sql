@@ -1,0 +1,12 @@
+-- Add migration script here
+CREATE TABLE IF NOT EXISTS customers(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT NOT NULL,
+  address TEXT DEFAULT NULL,
+  instagram_url TEXT DEFAULT NULL,
+  site_url TEXT DEFAULT NULL,
+  is_client BOOLEAN NOT NULL DEFAULT FALSE,
+  contacted BOOLEAN NOT NULL DEFAULT FALSE
+);
