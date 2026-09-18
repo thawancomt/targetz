@@ -1,13 +1,18 @@
 use gpui_kit::{
-    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
+    App, AppContext, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled,
+    Window,
     base::v_flex,
     component::{
         ActiveTheme, IconName,
         button::{Button, ButtonVariants},
         tab::{Tab, TabBar},
     },
+    div,
 };
-use shared::customer::{self, Customer};
+use shared::{
+    customer::{self, Customer},
+    events::AppEvent,
+};
 
 use crate::{
     customer_detail_view::{self, CustomerDetailView},
@@ -67,6 +72,7 @@ impl TabState {
 
     pub fn close(&mut self, id: i64) {
         let Some(pos) = self.tabs.iter().position(|c| c.id == id) else {
+            println!("not found");
             return;
         };
         let was_active = self.active == Active::Customer(id);
@@ -104,9 +110,12 @@ impl TabState {
 }
 
 pub struct TabCustomerView {
-    state: TabState,
-    customer_list_view: Entity<CustomerListView>,
+    pub state: TabState,
+    pub customer_list_view: Entity<CustomerListView>,
+    pub customer_detail_view: Entity<CustomerDetailView>,
 }
+
+impl EventEmitter<AppEvent> for TabCustomerView {}
 
 impl Render for TabCustomerView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -140,33 +149,50 @@ impl Render for TabCustomerView {
             )
             .child(match self.state.active_customer() {
                 None => customer_list_view.into_any_element(),
-                Some(c) => CustomerDetailView::new(c.clone()).into_any_element(),
+                Some(c) => CustomerDetailView::view(window, cx, Some(c.clone())).into_any_element(),
             })
     }
 }
 
 impl TabCustomerView {
-    pub fn view(window: &mut Window, cx: &mut App) -> Entity<Self> {
-        cx.new(|cx| Self::new(window, cx))
+    pub fn view(
+        window: &mut Window,
+        cx: &mut App,
+        customer_list_view: Entity<CustomerListView>,
+    ) -> Entity<Self> {
+        cx.new(|cx| Self::new(window, cx, customer_list_view))
     }
 
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let customer_list_view = CustomerListView::view(window, cx);
-
+    pub fn new(
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        customer_list_view: Entity<CustomerListView>,
+    ) -> Self {
         customer_list_view.update(cx, |this, cx| {
             this.hydrate_customers(cx);
         });
 
-        cx.subscribe(&customer_list_view, |this, _view, event, _cx| match event {
-            CustomerListViewEvent::OPEN(data) => {
-                this.state.open(data.clone());
-            }
-        })
+        let customer_detail_view = CustomerDetailView::view(window, cx, None);
+
+        cx.subscribe(
+            &customer_list_view,
+            move |tab_view, _list_view, event, cx| match event {
+                CustomerListViewEvent::OPEN(customer) => {
+                    tab_view.state.open(customer.clone());
+                    tab_view.customer_detail_view.update(cx, |detail, cx| {
+                        detail.set_customer(customer.to_owned());
+                        cx.notify();
+                    });
+                    cx.notify();
+                }
+            },
+        )
         .detach();
 
         Self {
             state: TabState::new(),
             customer_list_view,
+            customer_detail_view: customer_detail_view,
         }
     }
 }

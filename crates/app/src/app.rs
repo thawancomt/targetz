@@ -1,6 +1,6 @@
 use customers::{
     create_customer_view::{CreateCustomerEvent, CreateCustomerView},
-    customers_list_view::CustomerListView,
+    customers_list_view::{CustomerListView, CustomerListViewEvent},
     tab_customers_view::{self, TabCustomerView},
 };
 use gpui_kit::{
@@ -10,7 +10,7 @@ use gpui_kit::{
     div,
 };
 use settings::settings_view::SettingsView;
-use shared::AppTab;
+use shared::{AppTab, events::AppEvent};
 use sidebar::sidebar_view::{SidebarEvent, SidebarView};
 use sqlx::{Pool, Sqlite};
 
@@ -43,15 +43,72 @@ impl AppShell {
 
         // Customers
         let create_customer_view = CreateCustomerView::view(window, cx);
+        let customer_list_view = CustomerListView::view(window, cx);
+        let tab_customers_view = TabCustomerView::view(window, cx, customer_list_view.clone());
 
-        let tab_customers_view = TabCustomerView::view(window, cx);
-
+        let tab_customers_view_clone = tab_customers_view.clone();
         cx.subscribe(&sidebar, |this, _entity, event, cx| match event {
             SidebarEvent::TabClick(tab) => {
                 this.current_tab = tab.to_owned();
                 cx.notify();
             }
         })
+        .detach();
+
+        // Listen the creation of a new customer
+        // Move to the targetz page and set the active tab to the ne user
+        cx.subscribe(
+            &create_customer_view,
+            |app_shell, _create_view, event, cx| match event {
+                CreateCustomerEvent::Created(new_customer) => {
+                    app_shell.customer_tab_view.update(cx, |tab_view, cx| {
+                        tab_view
+                            .customer_list_view
+                            .update(cx, |customer_list_view, cx| {
+                                customer_list_view.hydrate_customers(cx)
+                            });
+                        // open the new customer in tab view -> tabs
+                        tab_view.state.open(new_customer.clone());
+                    });
+                    app_shell
+                        .sidebar
+                        .update(cx, |sidebar_view, sidebar_context| {
+                            sidebar_view.toggle_tab(sidebar_context, AppTab::Targetz);
+                            sidebar_context.notify();
+                        });
+
+                    app_shell
+                        .customer_tab_view
+                        .update(cx, |tab_view, tab_context| {
+                            tab_view.customer_detail_view.update(
+                                tab_context,
+                                |detail_view, context| {
+                                    detail_view.set_customer(new_customer.clone());
+                                    context.notify();
+                                },
+                            );
+                            tab_context.notify();
+                        });
+                }
+                _ => {}
+            },
+        )
+        .detach();
+
+        // React to deletion of a customer
+        cx.subscribe(
+            &customer_list_view,
+            move |_app_shell, list_view, event, cx| match event {
+                AppEvent::DeletedCustomer(deleted_id) => {
+                    list_view.update(cx, |this, cx| this.hydrate_customers(cx));
+                    tab_customers_view_clone.update(cx, |tab_view, tab_context| {
+                        tab_view.state.close(deleted_id.clone());
+                        tab_context.notify();
+                    })
+                }
+                _ => {}
+            },
+        )
         .detach();
 
         Self {

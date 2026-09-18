@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use crate::customer_repository::CustomerRepository;
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, InteractiveElement, IntoElement, ParentElement,
     Render, Styled, Window,
-    base::{StyledExt, input::InputEvent},
+    base::{Disableable, StyledExt, input::InputEvent},
     component::{
         ActiveTheme, WindowExt,
         button::{Button, ButtonVariants},
@@ -17,39 +19,74 @@ use gpui_kit::{
 use shared::{
     customer::{Customer, Draft},
     db::DbPool,
+    events::AppEvent,
     theme::AppColors,
 };
 
 pub enum CreateCustomerEvent {
-    Created,
+    Created(Customer),
     FaileToCreate,
+    InputChange,
 }
 
 impl EventEmitter<CreateCustomerEvent> for CreateCustomerView {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CustomerFormFieldId {
+    Name,
+    Email,
+    Address,
+    InstagramUrl,
+    SiteUrl,
+    PhoneNumber,
+}
+
+pub struct FormFieldDescriptor {
+    pub id: CustomerFormFieldId,
+    pub label: &'static str,
+}
+
+pub const TEXT_FIELDS: &[FormFieldDescriptor] = &[
+    FormFieldDescriptor {
+        id: CustomerFormFieldId::Name,
+        label: "Name",
+    },
+    FormFieldDescriptor {
+        id: CustomerFormFieldId::Email,
+        label: "Email",
+    },
+    FormFieldDescriptor {
+        id: CustomerFormFieldId::Address,
+        label: "Address",
+    },
+    FormFieldDescriptor {
+        id: CustomerFormFieldId::InstagramUrl,
+        label: "Instagram",
+    },
+    FormFieldDescriptor {
+        id: CustomerFormFieldId::SiteUrl,
+        label: "Site url",
+    },
+    FormFieldDescriptor {
+        id: CustomerFormFieldId::PhoneNumber,
+        label: "Phone number",
+    },
+];
+
+pub struct FormFieldState {
+    pub value: String,
+    pub input: Entity<InputState>,
+}
+
 pub struct CreateCustomerView {
-    pub name: String,
-    pub name_input: Entity<InputState>,
-
-    pub instagram_url: String,
-    pub instagram_url_input: Entity<InputState>,
-
-    pub site_url: String,
-    pub site_url_input: Entity<InputState>,
-
-    pub email: String,
-    pub email_input: Entity<InputState>,
-
-    pub address: String,
-    pub address_input: Entity<InputState>,
-
-    pub phone_number: String,
-    pub phone_number_input: Entity<InputState>,
+    pub text_fields: HashMap<CustomerFormFieldId, FormFieldState>,
 
     pub is_client: bool,
     pub contacted: bool,
 
     pub repository: CustomerRepository,
+
+    pub was_edited: bool,
 }
 
 fn field(label: String, input: &Entity<InputState>) -> impl IntoElement {
@@ -72,29 +109,31 @@ impl Render for CreateCustomerView {
         window: &mut gpui_kit::Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let name_val = self.get_value(CustomerFormFieldId::Name);
+
         div()
             .flex_1()
-            .p_4()
+            .h_full()
+            .p_2()
             .child(
                 div()
-                    .child(if self.name.len() > 3 {
-                        format!("{}", &self.name.as_str())
+                    .child(if name_val.len() > 3 {
+                        name_val.to_string()
                     } else {
                         "Create a new Customer".to_string()
                     })
                     .text_2xl(),
             )
+            .gap_2()
             .child(
                 div()
-                    .size_full()
+                    .flex_1()
                     .items_center()
                     .justify_center()
-                    .child(field("Name".to_string(), &self.name_input))
-                    .child(field("Email".to_string(), &self.email_input))
-                    .child(field("Address".to_string(), &self.address_input))
-                    .child(field("Instagram".to_string(), &self.instagram_url_input))
-                    .child(field("Site url".to_string(), &self.site_url_input))
-                    .child(field("Phone number".to_string(), &self.phone_number_input))
+                    .children(TEXT_FIELDS.iter().map(|desc| {
+                        let input = &self.text_fields.get(&desc.id).unwrap().input;
+                        field(desc.label.to_string(), input)
+                    }))
                     .child(
                         div()
                             .flex()
@@ -121,19 +160,36 @@ impl Render for CreateCustomerView {
                             )),
                     ),
             )
+            .child(format!("{}", self.was_edited))
             .child(
                 Button::new("create customer")
                     .primary()
+                    .disabled(self.was_edited)
                     .child("Save")
+                    .flex_shrink_0()
+                    .mt_2()
                     .on_click(cx.listener(move |this, _, window, cx| {
+                        let first_name = this
+                            .get_value(CustomerFormFieldId::Name)
+                            .split_whitespace()
+                            .next()
+                            .unwrap_or("")
+                            .to_string();
                         this.save_customer(cx);
-                        window.push_notification(
-                            format!(
-                                "Customer {} created",
-                                this.name.split_whitespace().next().unwrap_or("")
-                            ),
-                            cx,
-                        );
+                        window.push_notification(format!("Customer {first_name} created"), cx);
+                        cx.notify();
+                    })),
+            )
+            .child(
+                Button::new("reset-form")
+                    .disabled(!self.was_edited)
+                    .ghost()
+                    .label("Reset")
+                    .flex_shrink_0()
+                    .mt_2()
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.reset_form(window, cx);
+                        window.push_notification("Form reseted", cx);
                         cx.notify();
                     })),
             )
@@ -145,79 +201,54 @@ impl CreateCustomerView {
         cx.new(|cx| Self::new(window, cx))
     }
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let name = String::new();
-        let email = String::new();
-        let address = String::new();
-        let instagram_url = String::new();
-        let phone_number = String::new();
-        let site_url = String::new();
-        let contacted = false;
-        let is_client = false;
+        let mut text_fields = HashMap::new();
 
-        let name_input = cx.new(|cx| InputState::new(window, cx));
-        let email_input = cx.new(|cx| InputState::new(window, cx));
-        let address_input = cx.new(|cx| InputState::new(window, cx));
-        let instagram_url_input = cx.new(|cx| InputState::new(window, cx));
-        let site_url_input = cx.new(|cx| InputState::new(window, cx));
-        let phone_number_input = cx.new(|cx| InputState::new(window, cx));
+        for desc in TEXT_FIELDS {
+            let input = cx.new(|cx| InputState::new(window, cx));
+            let field_id = desc.id;
 
-        cx.subscribe(&name_input, |this, input, _event: &InputEvent, cx| {
-            this.name = input.read(cx).text().to_string();
-        })
-        .detach();
+            cx.subscribe(&input, move |this, input, _event: &InputEvent, cx| {
+                cx.emit(CreateCustomerEvent::InputChange);
+                if let Some(field) = this.text_fields.get_mut(&field_id) {
+                    field.value = input.read(cx).text().to_string();
+                    this.was_edited = true;
+                }
+                cx.notify();
+            })
+            .detach();
 
-        cx.subscribe(&email_input, |this, input, _event: &InputEvent, cx| {
-            this.email = input.read(cx).text().to_string();
-        })
-        .detach();
-
-        cx.subscribe(&address_input, |this, input, _event: &InputEvent, cx| {
-            this.address = input.read(cx).text().to_string();
-        })
-        .detach();
-
-        cx.subscribe(
-            &instagram_url_input,
-            |this, input, _event: &InputEvent, cx| {
-                this.instagram_url = input.read(cx).text().to_string();
-            },
-        )
-        .detach();
-
-        cx.subscribe(&site_url_input, |this, input, _event: &InputEvent, cx| {
-            this.site_url = input.read(cx).text().to_string();
-        })
-        .detach();
-
-        cx.subscribe(
-            &phone_number_input,
-            |this, input, _event: &InputEvent, cx| {
-                this.phone_number = input.read(cx).text().to_string();
-            },
-        )
-        .detach();
+            text_fields.insert(
+                desc.id,
+                FormFieldState {
+                    value: String::new(),
+                    input,
+                },
+            );
+        }
 
         let pool = cx.global::<DbPool>().0.clone();
 
         let repository = CustomerRepository::new(pool);
 
+        let _ = cx.subscribe_self(|this, event, _cx| match event {
+            CreateCustomerEvent::InputChange => this.was_edited = true,
+            _ => {}
+        });
+
         Self {
-            name,
-            name_input,
-            email_input,
-            address,
-            address_input,
-            instagram_url_input,
-            phone_number_input,
-            site_url_input,
-            email,
-            contacted,
-            instagram_url,
-            phone_number,
-            site_url,
+            text_fields,
+            is_client: false,
+            contacted: false,
             repository,
-            is_client,
+            was_edited: false,
         }
+    }
+
+    pub fn get_value(&self, id: CustomerFormFieldId) -> &str {
+        self.text_fields
+            .get(&id)
+            .map(|f| f.value.as_str())
+            .unwrap_or("")
     }
 
     pub fn set_is_client(&mut self, value: bool) {
@@ -232,65 +263,36 @@ impl CreateCustomerView {
         self.contacted = value
     }
     pub fn reset_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // 1. Reseta as strings internas da struct
-        self.name.clear();
-        self.email.clear();
-        self.address.clear();
-        self.instagram_url.clear();
-        self.phone_number.clear();
-        self.site_url.clear();
+        for field in self.text_fields.values_mut() {
+            field.value.clear();
+            field.input.update(cx, |input, cx| {
+                input.set_value("", window, cx);
+            });
+        }
         self.is_client = false;
         self.contacted = false;
+        self.was_edited = false;
 
-        self.name_input.update(cx, |input, cx| {
-            input.set_value("", window, cx);
-        });
-        self.email_input.update(cx, |input, cx| {
-            input.set_value("", window, cx);
-        });
-        self.address_input.update(cx, |input, cx| {
-            input.set_value("", window, cx);
-        });
-        self.instagram_url_input.update(cx, |input, cx| {
-            input.set_value("", window, cx);
-        });
-        self.site_url_input.update(cx, |input, cx| {
-            input.set_value("", window, cx);
-        });
-        self.phone_number_input.update(cx, |input, cx| {
-            input.set_value("", window, cx);
-        });
         cx.notify();
     }
 
     pub fn save_customer(&mut self, cx: &mut Context<Self>) {
-        let name = self.name.clone();
-        let email = self.email.clone();
-        let address = self.address.clone();
-        let instagram_url = self.instagram_url.clone();
-        let phone_number = self.phone_number.clone();
-        let site_url = self.site_url.clone();
+        let opt_str = |s: &str| {
+            if s.trim().is_empty() {
+                None
+            } else {
+                Some(s.to_string())
+            }
+        };
 
         let customer = Customer::<Draft> {
             id: Draft,
-            name,
-            email,
-            phone_number,
-            address: if address.is_empty() {
-                None
-            } else {
-                Some(address)
-            },
-            instagram_url: if instagram_url.is_empty() {
-                None
-            } else {
-                Some(instagram_url)
-            },
-            site_url: if site_url.is_empty() {
-                None
-            } else {
-                Some(site_url)
-            },
+            name: self.get_value(CustomerFormFieldId::Name).to_string(),
+            email: self.get_value(CustomerFormFieldId::Email).to_string(),
+            phone_number: self.get_value(CustomerFormFieldId::PhoneNumber).to_string(),
+            address: opt_str(self.get_value(CustomerFormFieldId::Address)),
+            instagram_url: opt_str(self.get_value(CustomerFormFieldId::InstagramUrl)),
+            site_url: opt_str(self.get_value(CustomerFormFieldId::SiteUrl)),
             is_client: self.is_client,
             contacted: self.contacted,
         };
@@ -302,8 +304,8 @@ impl CreateCustomerView {
 
             this.update_in(cx, |this, window, cx| {
                 match result {
-                    Ok(_new_customer) => {
-                        cx.emit(CreateCustomerEvent::Created);
+                    Ok(new_customer) => {
+                        cx.emit(CreateCustomerEvent::Created(new_customer));
                         this.reset_form(window, cx);
                     }
                     Err(e) => {

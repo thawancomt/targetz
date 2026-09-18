@@ -1,5 +1,6 @@
 use std::fmt;
 pub mod customer;
+pub mod customer_interaction;
 pub mod db;
 pub mod events;
 pub mod theme;
