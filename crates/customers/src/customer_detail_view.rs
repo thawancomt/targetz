@@ -193,15 +193,13 @@ impl CustomerDetailView {
             Tag::success().child(interaction.status.as_str().to_string())
         };
 
-        div()
+        v_flex()
             .w_full()
             .p_3()
             .gap_2()
             .border_1()
             .border_color(accent_color)
             .bg(theme.accent)
-            .flex()
-            .flex_col()
             // Linha de cabeçalho: data + tag lado a lado
             .child(
                 div()
@@ -221,11 +219,15 @@ impl CustomerDetailView {
             // Nota, com cor levemente atenuada quando ausente
             .child(
                 div()
+                    .w_full()
+                    .min_w_0()
+                    .overflow_hidden()
                     .text_color(theme.selection)
                     .child(match &interaction.note {
                         Some(note) => note.clone(),
                         None => "No note left".to_string(),
-                    }),
+                    })
+                    .truncate(),
             )
     }
 }
@@ -339,6 +341,8 @@ impl Render for CustomerDetailView {
                                     .flex()
                                     .flex_col()
                                     .gap_2()
+                                    .min_w_0()
+                                    .w_full()
                                     .children(
                                         interactions
                                             .iter()

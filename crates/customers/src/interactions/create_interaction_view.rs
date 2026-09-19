@@ -3,12 +3,14 @@ use std::collections::HashMap;
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, InteractiveElement, IntoElement, ParentElement,
     Render, Styled, Window,
-    base::input::InputEvent,
+    base::{IndexPath, input::InputEvent},
     component::{
-        ActiveTheme, WindowExt,
+        ActiveTheme, Sizable, WindowExt,
         button::{Button, ButtonVariants},
+        date_picker::{DatePicker, DatePickerState},
         form::Field,
         input::{Input, InputState},
+        select::{Select, SelectItem, SelectState},
     },
     div,
 };
@@ -37,35 +39,63 @@ pub struct FormFieldDescriptor {
     pub label: &'static str,
 }
 
-pub const TEXT_FIELDS: &[FormFieldDescriptor] = &[
-    FormFieldDescriptor {
-        id: InteractionFormFieldId::InteractionDate,
-        label: "Interaction date",
-    },
-    FormFieldDescriptor {
-        id: InteractionFormFieldId::Note,
-        label: "Notes about interaction",
-    },
-    FormFieldDescriptor {
-        id: InteractionFormFieldId::Status,
-        label: "The result of interaction",
-    },
-];
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FormFieldSelectDescriptor {
+    pub id: InteractionFormFieldId,
+    pub label: &'static str,
+    pub options: fn() -> Vec<String>,
+}
 
-pub struct FormFieldState {
+pub const TEXT_FIELDS: &[FormFieldDescriptor] = &[FormFieldDescriptor {
+    id: InteractionFormFieldId::Note,
+    label: "Notes about interaction",
+}];
+
+pub const DATE_FIELDS: &[FormFieldDescriptor] = &[FormFieldDescriptor {
+    id: InteractionFormFieldId::InteractionDate,
+    label: "Interaction date",
+}];
+
+pub const SELECT_FIELDS: &[FormFieldSelectDescriptor] = &[FormFieldSelectDescriptor {
+    id: InteractionFormFieldId::Status,
+    label: "Interaction date",
+    options: || {
+        vec![
+            InteractionStatus::Contacted.as_str().to_string(),
+            InteractionStatus::NewClient.as_str().to_string(),
+            InteractionStatus::NoResponse.as_str().to_string(),
+            InteractionStatus::Refused.as_str().to_string(),
+        ]
+    },
+}];
+
+pub struct FormFieldState<T> {
     pub value: String,
-    pub input: Entity<InputState>,
+    pub input: Entity<T>,
 }
 
 impl EventEmitter<CreateInteractionViewEvent> for CreateInteractionView {}
 
 pub struct CreateInteractionView {
     pub interaction_repository: InteractionRepository,
-    pub form_fields: HashMap<InteractionFormFieldId, FormFieldState>,
+    pub text_fields: HashMap<InteractionFormFieldId, FormFieldState<InputState>>,
+
+    pub date_fields: HashMap<InteractionFormFieldId, FormFieldState<DatePickerState>>,
+    pub select_fields: HashMap<InteractionFormFieldId, FormFieldState<SelectState<Vec<String>>>>,
+
     pub customer: Option<Customer>,
 }
 fn field(label: String, input: &Entity<InputState>) -> impl IntoElement {
     Field::new().label(label.clone()).child(Input::new(input))
+}
+fn date_field(label: String, input: &Entity<DatePickerState>) -> impl IntoElement {
+    Field::new()
+        .label(label.clone())
+        .child(DatePicker::new(input).large())
+}
+
+fn select_field(label: String, input: &Entity<SelectState<Vec<String>>>) -> impl IntoElement {
+    Field::new().label(label.clone()).child(Select::new(input))
 }
 
 impl Render for CreateInteractionView {
@@ -82,25 +112,37 @@ impl Render for CreateInteractionView {
             .bg(theme.accent)
             .border_color(cx.theme().selection)
             .hover(|s| s.border_color(theme.primary))
-            .child(
-                div()
-                    .child(format!(
-                        "Create new interaction with {}",
-                        if self.customer.is_some() {
-                            self.customer.clone().unwrap().name
-                        } else {
-                            "".to_string()
-                        }
-                    ))
-                    .text_lg(),
-            )
+            .child(format!(
+                "Create new interaction with {}",
+                if self.customer.is_some() {
+                    self.customer.clone().unwrap().name
+                } else {
+                    "".to_string()
+                }
+            ))
             .children(TEXT_FIELDS.iter().map(|f| {
-                let form_state = self.form_fields.get(&f.id).unwrap();
+                let form_state = self.text_fields.get(&f.id).unwrap();
 
                 let input = &form_state.input;
                 let label = f.label;
 
                 field(label.to_string(), input)
+            }))
+            .children(DATE_FIELDS.iter().map(|f| {
+                let form_state = self.date_fields.get(&f.id).unwrap();
+
+                let input = &form_state.input;
+                let label = f.label;
+
+                date_field(label.to_string(), input)
+            }))
+            .children(SELECT_FIELDS.iter().map(|f| {
+                let form_state = self.select_fields.get(&f.id).unwrap();
+
+                let input = &form_state.input;
+                let label = f.label;
+
+                select_field(label.to_string(), input)
             }))
             .child(
                 Button::new("Save-interaction")
@@ -130,14 +172,42 @@ impl CreateInteractionView {
         customer: Option<Customer>,
         interaction_repository: InteractionRepository,
     ) -> Self {
-        let mut form: HashMap<InteractionFormFieldId, FormFieldState> = HashMap::new();
+        let mut form: HashMap<InteractionFormFieldId, FormFieldState<InputState>> = HashMap::new();
+        let mut date_fields: HashMap<InteractionFormFieldId, FormFieldState<DatePickerState>> =
+            HashMap::new();
 
+        let mut select_fields: HashMap<
+            InteractionFormFieldId,
+            FormFieldState<SelectState<Vec<String>>>,
+        > = HashMap::new();
+
+        for desc in DATE_FIELDS {
+            let id = desc.id;
+            let date_picker = cx.new(|cx| DatePickerState::new(window, cx));
+
+            cx.observe(&date_picker, move |this, picker, cx| {
+                let selected_date = picker.read(cx).date();
+                if let Some(state) = this.date_fields.get_mut(&id) {
+                    state.value = selected_date.to_string();
+                }
+                cx.notify();
+            })
+            .detach();
+
+            date_fields.insert(
+                id,
+                FormFieldState {
+                    value: String::new(),
+                    input: date_picker,
+                },
+            );
+        }
         for desc in TEXT_FIELDS {
             let input = cx.new(|cx| InputState::new(window, cx));
             let id = desc.id;
 
             cx.subscribe(&input, move |this, input, _event: &InputEvent, cx| {
-                let text = this.form_fields.get_mut(&id);
+                let text = this.text_fields.get_mut(&id);
 
                 if let Some(input_value) = text {
                     input_value.value = input.read(cx).text().to_string();
@@ -154,10 +224,33 @@ impl CreateInteractionView {
                 },
             );
         }
+        for desc in SELECT_FIELDS {
+            let select_state = cx.new(|cx| {
+                SelectState::new((desc.options)(), Some(IndexPath::default()), window, cx)
+            });
 
+            cx.observe(&select_state, move |this, picker, cx| {
+                let selected = picker.read(cx).selected_value();
+                if let Some(state) = this.select_fields.get_mut(&desc.id) {
+                    state.value = selected.unwrap_or(&String::new()).to_string()
+                }
+                cx.notify();
+            })
+            .detach();
+
+            select_fields.insert(
+                desc.id,
+                FormFieldState {
+                    value: String::new(),
+                    input: select_state,
+                },
+            );
+        }
         Self {
             interaction_repository,
-            form_fields: form,
+            text_fields: form,
+            date_fields: date_fields,
+            select_fields,
             customer,
         }
     }
@@ -166,34 +259,29 @@ impl CreateInteractionView {
         let repository_handle = self.interaction_repository.clone();
 
         let note = self
-            .form_fields
+            .text_fields
             .get(&InteractionFormFieldId::Note)
             .unwrap()
             .value
             .clone();
 
-        let status = self
-            .form_fields
-            .get(&InteractionFormFieldId::Status)
-            .unwrap()
-            .value
-            .clone();
+        let status = "Contacted".to_string();
 
         let date = self
-            .form_fields
+            .date_fields
             .get(&InteractionFormFieldId::InteractionDate)
             .unwrap()
             .value
             .clone();
 
+        println!("Target date: {date}");
+
         let interaction = Interaction {
             id: Draft,
-            interaction_date: date,
+            interaction_date: date.to_string(),
             note: if !note.is_empty() { Some(note) } else { None },
             status: InteractionStatus::from_str(&status),
         };
-
-        println!("{:#?}", interaction);
 
         cx.spawn(async move |this, cx| {
             let result = repository_handle.create_interaction(interaction).await;
@@ -218,7 +306,7 @@ impl CreateInteractionView {
     }
 
     pub fn reset_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        for field in &mut self.form_fields {
+        for field in &mut self.text_fields {
             field.1.input.update(cx, |input, context| {
                 input.clean(window, context);
             });
