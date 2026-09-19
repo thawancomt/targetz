@@ -19,7 +19,6 @@ use gpui_kit::{
 use shared::{
     customer::{Customer, Draft},
     db::DbPool,
-    events::AppEvent,
     theme::AppColors,
 };
 
@@ -164,7 +163,7 @@ impl Render for CreateCustomerView {
             .child(
                 Button::new("create customer")
                     .primary()
-                    .disabled(self.was_edited)
+                    .disabled(!self.was_edited)
                     .child("Save")
                     .flex_shrink_0()
                     .mt_2()
@@ -182,7 +181,7 @@ impl Render for CreateCustomerView {
             )
             .child(
                 Button::new("reset-form")
-                    .disabled(!self.was_edited)
+                    .disabled(self.was_edited)
                     .ghost()
                     .label("Reset")
                     .flex_shrink_0()

@@ -1,7 +1,7 @@
 use customers::{
     create_customer_view::{CreateCustomerEvent, CreateCustomerView},
-    customers_list_view::{CustomerListView, CustomerListViewEvent},
-    tab_customers_view::{self, TabCustomerView},
+    customers_list_view::CustomerListView,
+    tab_customers_view::TabCustomerView,
 };
 use gpui_kit::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
@@ -12,13 +12,6 @@ use gpui_kit::{
 use settings::settings_view::SettingsView;
 use shared::{AppTab, events::AppEvent};
 use sidebar::sidebar_view::{SidebarEvent, SidebarView};
-use sqlx::{Pool, Sqlite};
-
-use crate::DbPool;
-
-struct State {
-    pool: Pool<Sqlite>,
-}
 
 pub struct AppShell {
     pub current_tab: AppTab,
@@ -26,7 +19,6 @@ pub struct AppShell {
     pub settings_view: Entity<SettingsView>,
     pub create_customer_view: Entity<CreateCustomerView>,
     pub customer_tab_view: Entity<TabCustomerView>,
-    pub state: State,
 }
 
 impl AppShell {
@@ -35,8 +27,6 @@ impl AppShell {
     }
 
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let pool = cx.global::<DbPool>().0.clone();
-
         let initial_current_tab = AppTab::Home;
         let sidebar = SidebarView::view(window, cx);
         let settings_view = SettingsView::view(window, cx);
@@ -83,7 +73,8 @@ impl AppShell {
                             tab_view.customer_detail_view.update(
                                 tab_context,
                                 |detail_view, context| {
-                                    detail_view.set_customer(new_customer.clone());
+                                    detail_view.set_customer(new_customer.clone(), context);
+                                    detail_view.hydrate_interactions(context);
                                     context.notify();
                                 },
                             );
@@ -115,7 +106,6 @@ impl AppShell {
             sidebar,
             settings_view,
             create_customer_view,
-            state: State { pool: pool },
             current_tab: initial_current_tab,
             customer_tab_view: tab_customers_view,
         }

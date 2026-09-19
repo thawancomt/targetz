@@ -12,10 +12,10 @@ pub struct InteractionRepository {
 
 #[derive(Debug, thiserror::Error)]
 pub enum InteractionRepositoryError {
-    #[error("Failed to create interaction")]
+    #[error("Failed to create interaction : {0}")]
     CreateError(String),
 
-    #[error("Failed to create the pivot record ")]
+    #[error("Failed to create the pivot record  : {0}")]
     PivotCreateError(String),
 }
 
@@ -33,6 +33,8 @@ impl InteractionRepository {
                 "Missing customer target".to_string(),
             ));
         };
+
+        let customer = self.customer.clone();
 
         let Interaction {
             id,
@@ -73,6 +75,8 @@ impl InteractionRepository {
         .await
         .map_err(|e| InteractionRepositoryError::CreateError(e.to_string()))?;
 
+        println!("new id: {}", result.id);
+
         let _pivot_record = sqlx::query!(
             r#"
                 INSERT INTO customer_interaction (
@@ -81,10 +85,10 @@ impl InteractionRepository {
                 )
                 VALUES (?, ?)
             "#,
-            result.id,
-            0
+            customer.unwrap().id,
+            result.id
         )
-        .fetch_one(transaction.as_mut())
+        .fetch_optional(transaction.as_mut())
         .await
         .map_err(|e| InteractionRepositoryError::PivotCreateError(e.to_string()))?;
 
@@ -92,7 +96,42 @@ impl InteractionRepository {
             .commit()
             .await
             .map_err(|e| InteractionRepositoryError::CreateError(e.to_string()))?;
-
         Ok(result.into())
+    }
+
+    pub async fn get_interactions_for_customer(
+        &self,
+    ) -> Result<Vec<Interaction>, InteractionRepositoryError> {
+        let customer = match self.customer.as_ref() {
+            Some(data) => data.clone(),
+            None => {
+                return Err(InteractionRepositoryError::CreateError(
+                    "no customer target".to_string(),
+                ));
+            }
+        };
+
+        let result = sqlx::query_as!(
+            InteractionRow,
+            r#"
+                SELECT ii.*
+                FROM customer_interaction ci
+                INNER JOIN customers cc
+                    ON ci.customer_id = cc.id
+                INNER JOIN interaction ii
+                    ON ci.interaction_id = ii.id
+
+                WHERE cc.id = ?
+            "#,
+            customer.id
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| InteractionRepositoryError::CreateError(e.to_string()))?;
+
+        Ok(result
+            .into_iter()
+            .map(|interaction| interaction.into())
+            .collect())
     }
 }

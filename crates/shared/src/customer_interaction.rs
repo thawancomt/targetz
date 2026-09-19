@@ -1,6 +1,6 @@
 use sqlx::prelude::FromRow;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InteractionStatus {
     Contacted,
     NoResponse,
@@ -29,7 +29,7 @@ impl InteractionStatus {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Interaction<State = i64> {
     pub id: State,
     pub interaction_date: String,

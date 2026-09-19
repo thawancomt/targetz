@@ -9,13 +9,10 @@ use gpui_kit::{
     },
     div,
 };
-use shared::{
-    customer::{self, Customer},
-    events::AppEvent,
-};
+use shared::{customer::Customer, events::AppEvent};
 
 use crate::{
-    customer_detail_view::{self, CustomerDetailView},
+    customer_detail_view::CustomerDetailView,
     customers_list_view::{CustomerListView, CustomerListViewEvent},
 };
 
@@ -118,7 +115,7 @@ pub struct TabCustomerView {
 impl EventEmitter<AppEvent> for TabCustomerView {}
 
 impl Render for TabCustomerView {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let customer_list_view = self.customer_list_view.clone();
         let tabs_snapshot = self.state.tabs().to_vec();
 
@@ -147,10 +144,15 @@ impl Render for TabCustomerView {
                         cx.notify();
                     })),
             )
-            .child(match self.state.active_customer() {
-                None => customer_list_view.into_any_element(),
-                Some(c) => CustomerDetailView::view(window, cx, Some(c.clone())).into_any_element(),
-            })
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .child(match self.state.active_customer() {
+                        None => customer_list_view.into_any_element(),
+                        Some(_) => self.customer_detail_view.clone().into_any_element(),
+                    }),
+            )
     }
 }
 
@@ -179,10 +181,19 @@ impl TabCustomerView {
             move |tab_view, _list_view, event, cx| match event {
                 CustomerListViewEvent::OPEN(customer) => {
                     tab_view.state.open(customer.clone());
-                    tab_view.customer_detail_view.update(cx, |detail, cx| {
-                        detail.set_customer(customer.to_owned());
-                        cx.notify();
-                    });
+
+                    tab_view
+                        .customer_detail_view
+                        .update(cx, |detail, detail_view_context| {
+                            detail.set_customer(customer.to_owned(), detail_view_context);
+                            detail_view_context.notify();
+                        });
+                    tab_view
+                        .customer_detail_view
+                        .update(cx, |detail, detail_view_context| {
+                            detail.hydrate_interactions(detail_view_context);
+                        });
+
                     cx.notify();
                 }
             },
