@@ -1,6 +1,5 @@
-use gpui_kit::{App, AppContext};
 use shared::customer::{Customer, Draft, Persisted};
-use sqlx::{FromRow, Pool, Sqlite};
+use sqlx::{Pool, Sqlite};
 
 // 1. Estados em nível de TIPO
 

@@ -52,7 +52,7 @@ impl ProjectRepository {
         Ok(new_project.into())
     }
     pub async fn delete_project(&self, project_id: i64) -> Result<(), AppRepositoryError> {
-        let result = sqlx::query!(r#"DELETE FROM projects WHERE projects.id = ?"#, project_id)
+        let _result = sqlx::query!(r#"DELETE FROM projects WHERE projects.id = ?"#, project_id)
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| AppRepositoryError::FailedToDelete(project_id.to_string(), e.to_string()));
@@ -61,15 +61,15 @@ impl ProjectRepository {
     }
     pub fn link_customer(
         &self,
-        customer: Customer,
-        project_id: i64,
+        _customer: Customer,
+        _project_id: i64,
     ) -> Result<(), AppRepositoryError> {
         todo!()
     }
     pub fn unlink_customer(
         &self,
-        customer: Customer,
-        project_id: i64,
+        _customer: Customer,
+        _project_id: i64,
     ) -> Result<(), AppRepositoryError> {
         todo!()
     }

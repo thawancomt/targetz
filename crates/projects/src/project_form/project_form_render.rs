@@ -1,19 +1,9 @@
-use std::collections::HashMap;
-
 use gpui_kit::{
-    App, AppContext, Context, Entity, ParentElement, Render, Styled, Window,
+    AppContext, ParentElement, Render, Styled,
     component::{
-        ActiveTheme,
-        form::Field,
-        input::{Input, InputEvent, InputState},
-        scroll::ScrollableElement,
-        select::{Select, SelectEvent, SelectState},
+        ActiveTheme, form::Field, input::Input, scroll::ScrollableElement, select::Select,
     },
     div,
-};
-use shared::{
-    app_form::{AppForm, FormFieldItem, FormFieldSelectItem, SelectFieldState, TextFieldState},
-    project::{self, ProjectStatus},
 };
 
 use crate::project_form::project_form::{
@@ -23,7 +13,7 @@ use crate::project_form::project_form::{
 impl Render for CreateProjectView {
     fn render(
         &mut self,
-        window: &mut gpui_kit::Window,
+        _window: &mut gpui_kit::Window,
         cx: &mut gpui_kit::prelude::Context<Self>,
     ) -> impl gpui_kit::prelude::IntoElement {
         let theme = cx.theme();

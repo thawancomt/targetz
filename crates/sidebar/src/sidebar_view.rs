@@ -1,11 +1,10 @@
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled,
     Window,
-    base::{StyledExt, h_flex, v_flex},
+    base::{StyledExt, h_flex},
     component::{
-        ActiveTheme, IconName, Theme, ThemeMode,
+        ActiveTheme, IconName,
         button::{Button, ButtonVariants},
-        scroll::ScrollableElement,
     },
     div,
     prelude::FluentBuilder,

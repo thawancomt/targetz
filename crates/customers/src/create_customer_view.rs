@@ -4,9 +4,9 @@ use crate::customer_repository::CustomerRepository;
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, InteractiveElement, IntoElement, ParentElement,
     Render, Styled, Window,
-    base::{Disableable, StyledExt, input::InputEvent},
+    base::{Disableable, input::InputEvent},
     component::{
-        ActiveTheme, WindowExt,
+        WindowExt,
         button::{Button, ButtonVariants},
         form::Field,
         input::{Input, InputState},
@@ -14,7 +14,6 @@ use gpui_kit::{
     },
     div,
     prelude::FluentBuilder,
-    px,
 };
 use shared::{
     customer::{Customer, Draft},
@@ -105,7 +104,7 @@ fn switch_field(label: String, child: impl IntoElement) -> impl IntoElement {
 impl Render for CreateCustomerView {
     fn render(
         &mut self,
-        window: &mut gpui_kit::Window,
+        _window: &mut gpui_kit::Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let name_val = self.get_value(CustomerFormFieldId::Name);

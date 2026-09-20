@@ -1,19 +1,12 @@
 use std::collections::HashMap;
 
 use gpui_kit::{
-    App, AppContext, Context, Entity, ParentElement, Render, Styled, Window,
-    component::{
-        ActiveTheme,
-        form::Field,
-        input::{Input, InputEvent, InputState},
-        scroll::ScrollableElement,
-        select::{Select, SelectEvent, SelectState},
-    },
-    div,
+    App, AppContext, Context, Entity, Window,
+    component::{input::InputState, select::SelectState},
 };
 use shared::{
-    app_form::{AppForm, FormFieldItem, FormFieldSelectItem, SelectFieldState, TextFieldState},
-    project::{self, ProjectStatus},
+    app_form::{FormFieldItem, FormFieldSelectItem, SelectFieldState, TextFieldState},
+    project::ProjectStatus,
 };
 
 pub struct CreateProjectView {

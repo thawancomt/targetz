@@ -1,7 +1,7 @@
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, FontWeight, InteractiveElement, IntoElement,
     ParentElement, Render, Styled, Window,
-    base::{StyledExt, v_flex},
+    base::v_flex,
     component::{
         ActiveTheme, Icon, IconName, Theme, button::Button, scroll::ScrollableElement, tag::Tag,
     },

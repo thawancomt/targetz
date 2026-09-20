@@ -10,10 +10,7 @@ use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, FontWeight, InteractiveElement, IntoElement,
     ParentElement, Render, Styled, Window,
 };
-use gpui_kit::{
-    base::{Disableable, StyledExt},
-    div,
-};
+use gpui_kit::{base::Disableable, div};
 use shared::customer::{Customer, Persisted};
 use shared::db::DbPool;
 use shared::events::AppEvent;
@@ -124,19 +121,12 @@ pub fn customer_item(
                         ("Address", customer.address.as_deref()),
                     ];
 
-                    div()
-                        .w_full()
-                        .flex()
-                        .mt_1()
-                        .gap_2()
-                        .children(
-                            metadata_tags
-                                .into_iter()
-                                .filter_map(|(label, val)| {
-                                    val.filter(|s| !s.trim().is_empty())
-                                        .map(|v| tag_item(label, v.to_string(), cx))
-                                }),
-                        )
+                    div().w_full().flex().mt_1().gap_2().children(
+                        metadata_tags.into_iter().filter_map(|(label, val)| {
+                            val.filter(|s| !s.trim().is_empty())
+                                .map(|v| tag_item(label, v.to_string(), cx))
+                        }),
+                    )
                 })
                 .child(
                     div()
@@ -208,7 +198,7 @@ pub fn customer_item(
 impl Render for CustomerListView {
     fn render(
         &mut self,
-        window: &mut gpui_kit::Window,
+        _window: &mut gpui_kit::Window,
         cx: &mut gpui_kit::prelude::Context<Self>,
     ) -> impl gpui_kit::prelude::IntoElement {
         let filtered = self.filtered_customers.clone();
@@ -342,7 +332,7 @@ impl Render for CustomerListView {
                                         ),
                                 )
                             })
-                            .on_toggle_click(cx.listener(|view, this, _, cx| {
+                            .on_toggle_click(cx.listener(|view, _this, _, cx| {
                                 view.toggle_filter_accordion();
                                 cx.stop_propagation();
                                 cx.notify();
@@ -487,7 +477,7 @@ impl CustomerListView {
         .detach();
     }
 
-    pub fn toggle_customer(&mut self, customer: Customer, cx: &mut Context<Self>) {
+    pub fn toggle_customer(&mut self, customer: Customer, _cx: &mut Context<Self>) {
         if self.open_customers.contains(&customer) {
             let filtered: Vec<Customer> = self
                 .customers

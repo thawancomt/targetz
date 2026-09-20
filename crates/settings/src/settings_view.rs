@@ -1,6 +1,5 @@
 use gpui_kit::{
     App, AppContext, Context, Entity, ParentElement, Render, Styled, Window,
-    base::StyledExt,
     component::{
         ActiveTheme,
         input::{Input, InputState},

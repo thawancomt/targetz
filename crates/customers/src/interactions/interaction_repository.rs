@@ -1,6 +1,6 @@
 use shared::{
     customer::{Customer, Draft, Persisted},
-    customer_interaction::{Interaction, InteractionRow, InteractionStatus},
+    customer_interaction::{Interaction, InteractionRow},
 };
 use sqlx::{Pool, Sqlite};
 
@@ -37,7 +37,7 @@ impl InteractionRepository {
         let customer = self.customer.clone();
 
         let Interaction {
-            id,
+            id: _,
             interaction_date,
             status,
             note,

@@ -101,7 +101,7 @@ fn select_field(label: String, input: &Entity<SelectState<Vec<String>>>) -> impl
 impl Render for CreateInteractionView {
     fn render(
         &mut self,
-        window: &mut gpui_kit::Window,
+        _window: &mut gpui_kit::Window,
         cx: &mut gpui_kit::prelude::Context<Self>,
     ) -> impl gpui_kit::prelude::IntoElement {
         let theme = cx.theme();
@@ -154,7 +154,7 @@ impl Render for CreateInteractionView {
                     .label("Save")
                     .primary()
                     .mt_2()
-                    .on_click(cx.listener(|view, _click, window, context| {
+                    .on_click(cx.listener(|view, _click, _window, context| {
                         view.save_interaction(context);
                     })),
             )
