@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/app", "crates/customers", "crates/settings", "crates/shared", "crates/sidebar"]
+members = ["crates/app", "crates/customers", "crates/projects", "crates/settings", "crates/shared", "crates/sidebar"]
 
 [workspace.dependencies]
 gpui-kit = "0.6.2"

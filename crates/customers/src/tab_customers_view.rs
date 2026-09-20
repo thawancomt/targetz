@@ -148,6 +148,7 @@ impl Render for TabCustomerView {
                 div()
                     .flex_1()
                     .min_h_0()
+                    .min_w_0()
                     .child(match self.state.active_customer() {
                         None => customer_list_view.into_any_element(),
                         Some(_) => self.customer_detail_view.clone().into_any_element(),

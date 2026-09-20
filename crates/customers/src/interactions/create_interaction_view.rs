@@ -112,14 +112,19 @@ impl Render for CreateInteractionView {
             .bg(theme.accent)
             .border_color(cx.theme().selection)
             .hover(|s| s.border_color(theme.primary))
-            .child(format!(
-                "Create new interaction with {}",
-                if self.customer.is_some() {
-                    self.customer.clone().unwrap().name
-                } else {
-                    "".to_string()
-                }
-            ))
+            .child(
+                div()
+                    .child(format!(
+                        "Register interaction with {}",
+                        if self.customer.is_some() {
+                            self.customer.clone().unwrap().name
+                        } else {
+                            "".to_string()
+                        }
+                    ))
+                    .text_lg()
+                    .text_color(theme.primary),
+            )
             .children(TEXT_FIELDS.iter().map(|f| {
                 let form_state = self.text_fields.get(&f.id).unwrap();
 
@@ -265,7 +270,12 @@ impl CreateInteractionView {
             .value
             .clone();
 
-        let status = "Contacted".to_string();
+        let status = self
+            .select_fields
+            .get(&InteractionFormFieldId::Status)
+            .unwrap()
+            .value
+            .clone();
 
         let date = self
             .date_fields

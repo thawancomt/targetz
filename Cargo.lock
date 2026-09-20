@@ -194,6 +194,7 @@ dependencies = [
  "customers",
  "dotenv",
  "gpui-kit",
+ "projects",
  "settings",
  "shared",
  "sidebar",
@@ -5260,6 +5261,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "projects"
+version = "0.1.0"
+dependencies = [
+ "gpui-kit",
+ "shared",
+ "sqlx",
+]
+
+[[package]]
 name = "pulp"
 version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6305,6 +6315,7 @@ version = "0.1.0"
 dependencies = [
  "gpui-kit",
  "sqlx",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

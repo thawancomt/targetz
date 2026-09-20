@@ -1,8 +1,11 @@
 use std::fmt;
+pub mod app_errors;
+pub mod app_form;
 pub mod customer;
 pub mod customer_interaction;
 pub mod db;
 pub mod events;
+pub mod project;
 pub mod theme;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -11,6 +14,7 @@ pub enum AppTab {
     Home,
     Settings,
     CreateCustomer,
+    CreateProject,
 }
 
 impl fmt::Display for AppTab {
@@ -20,6 +24,7 @@ impl fmt::Display for AppTab {
             AppTab::Settings => writeln!(f, "Settings"),
             AppTab::Targetz => writeln!(f, "Targetz"),
             AppTab::CreateCustomer => writeln!(f, "Create Customer"),
+            AppTab::CreateProject => writeln!(f, "Create project"),
         }
     }
 }
@@ -31,6 +36,7 @@ impl AppTab {
             AppTab::Home => "Homepage",
             AppTab::Settings => "Settings",
             AppTab::Targetz => "Targetz",
+            AppTab::CreateProject => "Create project",
         }
     }
 }

@@ -165,7 +165,7 @@ impl CustomerDetailView {
                         div()
                             .child(label)
                             .font_weight(FontWeight::MEDIUM)
-                            .text_color(cx.theme().foreground),
+                            .text_color(cx.theme().accent_foreground),
                     ),
             )
             .child(
@@ -181,24 +181,20 @@ impl CustomerDetailView {
             shared::customer_interaction::InteractionStatus::NoResponse
         );
 
-        let accent_color = if is_no_response {
-            theme.danger
-        } else {
-            theme.selection
-        };
-
         let status_tag = if is_no_response {
-            Tag::danger().child(interaction.status.as_str().to_string())
+            Tag::info().child(interaction.status.as_str().to_string())
         } else {
-            Tag::success().child(interaction.status.as_str().to_string())
+            Tag::warning().child(interaction.status.as_str().to_string())
         };
 
         v_flex()
             .w_full()
+            .min_w_0()
+            .overflow_hidden()
             .p_3()
             .gap_2()
             .border_1()
-            .border_color(accent_color)
+            .border_color(theme.selection)
             .bg(theme.accent)
             // Linha de cabeçalho: data + tag lado a lado
             .child(
@@ -212,7 +208,8 @@ impl CustomerDetailView {
                                 false => interaction.interaction_date.clone(),
                                 true => "Missing interaction date".to_string(),
                             })
-                            .text_lg(),
+                            .text_lg()
+                            .text_color(theme.accent_foreground),
                     )
                     .child(status_tag),
             )
@@ -222,12 +219,11 @@ impl CustomerDetailView {
                     .w_full()
                     .min_w_0()
                     .overflow_hidden()
-                    .text_color(theme.selection)
+                    .child("Note: ")
                     .child(match &interaction.note {
-                        Some(note) => note.clone(),
+                        Some(note) => note.replace('\n', " "),
                         None => "No note left".to_string(),
-                    })
-                    .truncate(),
+                    }),
             )
     }
 }
@@ -242,6 +238,7 @@ impl Render for CustomerDetailView {
                     .h_full()
                     .overflow_y_scrollbar()
                     .size_full()
+                    .min_w_0()
                     .p_6()
                     .gap_6()
                     .bg(cx.theme().background)

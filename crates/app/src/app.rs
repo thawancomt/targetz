@@ -9,6 +9,7 @@ use gpui_kit::{
     component::{Root, TitleBar},
     div,
 };
+use projects::project_form::project_form::CreateProjectView;
 use settings::settings_view::SettingsView;
 use shared::{AppTab, events::AppEvent};
 use sidebar::sidebar_view::{SidebarEvent, SidebarView};
@@ -19,6 +20,7 @@ pub struct AppShell {
     pub settings_view: Entity<SettingsView>,
     pub create_customer_view: Entity<CreateCustomerView>,
     pub customer_tab_view: Entity<TabCustomerView>,
+    pub create_project_view: Entity<CreateProjectView>,
 }
 
 impl AppShell {
@@ -35,6 +37,8 @@ impl AppShell {
         let create_customer_view = CreateCustomerView::view(window, cx);
         let customer_list_view = CustomerListView::view(window, cx);
         let tab_customers_view = TabCustomerView::view(window, cx, customer_list_view.clone());
+
+        let create_project_view = CreateProjectView::view(window, cx);
 
         let tab_customers_view_clone = tab_customers_view.clone();
         cx.subscribe(&sidebar, |this, _entity, event, cx| match event {
@@ -108,6 +112,7 @@ impl AppShell {
             create_customer_view,
             current_tab: initial_current_tab,
             customer_tab_view: tab_customers_view,
+            create_project_view,
         }
     }
 }
@@ -122,6 +127,7 @@ impl Render for AppShell {
             AppTab::Settings => self.settings_view.clone().into_any_element(),
             AppTab::CreateCustomer => self.create_customer_view.clone().into_any_element(),
             AppTab::Targetz => self.customer_tab_view.clone().into_any_element(),
+            AppTab::CreateProject => self.create_project_view.clone().into_any_element(),
             _ => self.settings_view.clone().into_any_element(),
         };
 
@@ -133,7 +139,7 @@ impl Render for AppShell {
                 .flex()
                 .flex_1()
                 .child(self.sidebar.clone())
-                .child(div().h_flex().flex_1().child(tab_to_show))
+                .child(div().h_flex().flex_1().min_w_0().child(tab_to_show))
                 .children(dialog_layer)
                 .children(notification_layer),
         )
