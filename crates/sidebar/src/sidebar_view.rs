@@ -44,7 +44,7 @@ impl Render for SidebarView {
                     .child(self.sidebar_item(AppTab::Targetz, cx))
                     .child(self.sidebar_item(AppTab::CreateCustomer, cx))
                     .child(self.sidebar_item(AppTab::Settings, cx))
-                    .child(self.sidebar_item(AppTab::CreateProject, cx)),
+                    .child(self.sidebar_item(AppTab::Projects, cx)),
             )
     }
 }

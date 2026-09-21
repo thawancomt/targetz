@@ -14,7 +14,7 @@ pub enum AppTab {
     Home,
     Settings,
     CreateCustomer,
-    CreateProject,
+    Projects,
 }
 
 impl fmt::Display for AppTab {
@@ -24,7 +24,7 @@ impl fmt::Display for AppTab {
             AppTab::Settings => writeln!(f, "Settings"),
             AppTab::Targetz => writeln!(f, "Targetz"),
             AppTab::CreateCustomer => writeln!(f, "Create Customer"),
-            AppTab::CreateProject => writeln!(f, "Create project"),
+            AppTab::Projects => writeln!(f, "Projects"),
         }
     }
 }
@@ -36,7 +36,7 @@ impl AppTab {
             AppTab::Home => "Homepage",
             AppTab::Settings => "Settings",
             AppTab::Targetz => "Targetz",
-            AppTab::CreateProject => "Create project",
+            AppTab::Projects => "Projects",
         }
     }
 }

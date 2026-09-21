@@ -1,5 +1,6 @@
 use crate::customer::Persisted;
 
+#[derive(Debug, Clone)]
 pub enum ProjectStatus {
     Started,
     Finished,
@@ -9,7 +10,7 @@ pub enum ProjectStatus {
 }
 
 impl ProjectStatus {
-    pub const fn as_str(&self) -> &str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             ProjectStatus::Finished => "Finished",
             ProjectStatus::Propousing => "Propousing",
@@ -32,6 +33,7 @@ impl From<String> for ProjectStatus {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Project<State = i64> {
     pub id: State,
     pub name: String,
@@ -44,6 +46,18 @@ pub struct Project<State = i64> {
     pub codename: Option<String>,
     pub target_deadline: Option<String>,
     pub updated_at: Option<String>,
+    pub budget: Option<f64>,
+}
+
+pub struct ProjectDraft {
+    pub name: String,
+    pub current_version: String,
+    pub status: ProjectStatus,
+    pub description: Option<String>,
+    pub start_date: Option<String>,
+    pub site_url: Option<String>,
+    pub codename: Option<String>,
+    pub target_deadline: Option<String>,
     pub budget: Option<f64>,
 }
 

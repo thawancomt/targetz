@@ -5,5 +5,6 @@ edition = "2024"
 
 [dependencies]
 shared = {path = "../shared"}
+customers = {path = "../customers"}
 sqlx.workspace = true
 gpui-kit.workspace = true

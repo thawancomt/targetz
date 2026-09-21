@@ -7,4 +7,7 @@ pub enum AppRepositoryError {
 
     #[error("Failed to delete entity {0} : {1}")]
     FailedToDelete(String, String),
+
+    #[error("Failed to fetch data entity:  {0}")]
+    FailedToFetch(String),
 }

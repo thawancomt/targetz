@@ -1,18 +1,23 @@
 use shared::{
     app_errors::AppRepositoryError,
-    customer::{Customer, Draft, Persisted},
-    project::{Project, ProjectRow},
+    customer::{Customer, Persisted},
+    project::{Project, ProjectDraft, ProjectRow},
 };
 use sqlx::{Pool, Sqlite};
 
+#[derive(Debug, Clone)]
 pub struct ProjectRepository {
     pool: Pool<Sqlite>,
 }
 
 impl ProjectRepository {
+    pub fn new(pool: Pool<Sqlite>) -> Self {
+        Self { pool: pool.clone() }
+    }
+
     pub async fn create_project(
         &self,
-        project: Project<Draft>,
+        project: ProjectDraft,
     ) -> Result<Project<Persisted>, AppRepositoryError> {
         let new_project = sqlx::query_as!(
             ProjectRow,
@@ -26,11 +31,10 @@ impl ProjectRepository {
                     status,
                     site_url,
                     start_date,
-                    target_deadline,
-                    updated_at
+                    target_deadline
                 )
                 VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9
                 )
                 RETURNING *
             "#,
@@ -43,7 +47,6 @@ impl ProjectRepository {
             project.site_url,
             project.start_date,
             project.target_deadline,
-            project.updated_at
         )
         .fetch_one(&self.pool)
         .await
@@ -75,5 +78,19 @@ impl ProjectRepository {
     }
     pub fn update_status(&self) -> Result<(), AppRepositoryError> {
         todo!()
+    }
+
+    pub async fn get_projects(&self) -> Result<Vec<Project<Persisted>>, AppRepositoryError> {
+        let result = sqlx::query_as!(
+            Project::<Persisted>,
+            r#"
+                SELECT * FROM projects
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| AppRepositoryError::FailedToFetch(e.to_string()))?;
+
+        Ok(result)
     }
 }
