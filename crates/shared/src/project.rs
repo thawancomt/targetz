@@ -1,6 +1,8 @@
+use sqlx::prelude::FromRow;
+
 use crate::customer::Persisted;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProjectStatus {
     Started,
     Finished,
@@ -23,11 +25,12 @@ impl ProjectStatus {
 
 impl From<String> for ProjectStatus {
     fn from(value: String) -> Self {
-        match value.to_lowercase().as_str() {
-            "finished" => ProjectStatus::Finished,
-            "propousing" => ProjectStatus::Finished,
-            "started" => ProjectStatus::Finished,
-            "refactoring" => ProjectStatus::Finished,
+        match value.as_str() {
+            "Finished" => ProjectStatus::Finished,
+            "Propousing" => ProjectStatus::Propousing,
+            "Started" => ProjectStatus::Started,
+            "Refactoring" => ProjectStatus::Refactoring,
+            "Prospecting" => ProjectStatus::Prospecting,
             _ => ProjectStatus::Started,
         }
     }
@@ -74,6 +77,19 @@ pub struct ProjectRow {
     pub target_deadline: Option<String>,
     pub updated_at: Option<String>,
     pub budget: Option<f64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProjectHistoryRow {
+    pub id: Option<i64>,
+    pub from_status: String,
+    pub to_status: String,
+    pub project_id: i64,
+    pub note: Option<String>,
+    pub change_ask_by: Option<String>,
+    pub reason: Option<String>,
+    pub impact_on_target_deadline: Option<String>,
+    pub created_at: String,
 }
 
 impl From<ProjectRow> for Project<Persisted> {

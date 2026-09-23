@@ -16,10 +16,6 @@ pub struct ProjectsListView {
     pub projects: Vec<Project>,
     pub project_views: Vec<Entity<ProjectItem>>,
     pub create_project_view: Entity<CreateProjectView>,
-    pub open_projects: Vec<Project>,
-
-    // tab
-    pub active_project: Option<Project>,
 }
 
 impl EventEmitter<ProjectListEvents> for ProjectsListView {}
@@ -38,17 +34,21 @@ impl ProjectsListView {
         Self {
             projects: Vec::new(),
             create_project_view,
-            open_projects: Vec::new(),
             project_views: Vec::new(),
-            active_project: None,
         }
+    }
+
+    pub fn add_project(&mut self, project: Project, cx: &mut Context<Self>) {
+        let mut projects = self.projects.clone();
+        projects.push(project);
+        self.with_projects(projects, cx);
     }
 
     pub fn observe_form_events(view: &Entity<CreateProjectView>, cx: &mut Context<Self>) {
         cx.subscribe(&view, |this, _, event, cx| {
             match event {
                 CreateProjectEvents::CreatedProject(project) => {
-                    this.projects.push(project.clone());
+                    this.add_project(project.clone(), cx);
                     cx.notify();
                 }
             };
@@ -71,18 +71,13 @@ impl ProjectsListView {
             .collect();
 
         for view in views.clone() {
-            let view_handle = view.clone();
-            cx.subscribe(&view, move |list_view, _emitter, event, list_context| {
+            cx.subscribe(&view, move |_list_view, _emitter, event, list_context| {
                 match event {
                     ProjectItemEvents::OpenProject(project) => {
-                        view_handle.update(list_context, |_this, _cx| {
-                            list_view.open_projects.push(project.clone());
-                            list_view.active_project = Some(project.clone());
-                        });
+                        list_context.emit(ProjectListEvents::OpenProject(project.clone()));
                     }
                     _ => {}
                 };
-                list_context.notify();
             })
             .detach();
         }

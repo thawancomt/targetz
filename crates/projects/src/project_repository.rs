@@ -1,7 +1,7 @@
 use shared::{
     app_errors::AppRepositoryError,
-    customer::{Customer, Persisted},
-    project::{Project, ProjectDraft, ProjectRow},
+    customer::{Customer, Persisted, Stakeholder},
+    project::{Project, ProjectDraft, ProjectHistoryRow, ProjectRow, ProjectStatus},
 };
 use sqlx::{Pool, Sqlite};
 
@@ -76,8 +76,58 @@ impl ProjectRepository {
     ) -> Result<(), AppRepositoryError> {
         todo!()
     }
-    pub fn update_status(&self) -> Result<(), AppRepositoryError> {
-        todo!()
+    pub async fn update_status(
+        &self,
+        project: Project,
+        status: ProjectStatus,
+    ) -> Result<(Project<Persisted>, ProjectHistoryRow), AppRepositoryError> {
+        let project_snapshot = project.clone();
+
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(|e| AppRepositoryError::FailedToCreate(e.to_string()))?;
+
+        let updated_project = sqlx::query_as!(
+            Project::<Persisted>,
+            r#"
+                UPDATE projects
+                SET status = ?
+                WHERE projects.id = ?
+                RETURNING *
+            "#,
+            status.as_str(),
+            &project.id
+        )
+        .fetch_one(transaction.as_mut())
+        .await
+        .map_err(|e| AppRepositoryError::FailedToFetch(e.to_string()))?;
+
+        let new_history = sqlx::query_as!(
+            ProjectHistoryRow,
+            r#"
+                INSERT INTO project_status_history (
+                    from_status, to_status, project_id
+                )
+                VALUES (?,?,?)
+
+                RETURNING *
+            "#,
+            &project_snapshot.status.as_str(),
+            &status.as_str(),
+            &project.id
+        )
+        .fetch_one(transaction.as_mut())
+        .await
+        .map_err(|e| AppRepositoryError::FailedToCreatePivot(e.to_string()))?;
+
+        transaction
+            .commit()
+            .await
+            .map_err(|e| AppRepositoryError::FailedToCreate(e.to_string()))?;
+
+        Ok((updated_project, new_history))
     }
 
     pub async fn get_projects(&self) -> Result<Vec<Project<Persisted>>, AppRepositoryError> {
@@ -86,6 +136,47 @@ impl ProjectRepository {
             r#"
                 SELECT * FROM projects
             "#
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| AppRepositoryError::FailedToFetch(e.to_string()))?;
+
+        Ok(result)
+    }
+
+    pub async fn get_project_history(
+        &self,
+        project_id: i64,
+    ) -> Result<Vec<ProjectHistoryRow>, AppRepositoryError> {
+        let result = sqlx::query_as!(
+            ProjectHistoryRow,
+            r#"
+                SELECT * FROM project_status_history p WHERE p.project_id = ?
+            "#,
+            &project_id
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| AppRepositoryError::FailedToCreate(e.to_string()))?;
+
+        Ok(result)
+    }
+
+    pub async fn get_stakeholders(
+        &self,
+        project_id: i64,
+    ) -> Result<Vec<Stakeholder>, AppRepositoryError> {
+        let result = sqlx::query_as!(
+            Stakeholder,
+            r#"
+                SELECT c.*, role
+                    FROM project_customer pc
+                JOIN customers c
+                    ON pc.customer_id = c.id
+
+                WHERE pc.project_id = ?
+            "#,
+            &project_id
         )
         .fetch_all(&self.pool)
         .await

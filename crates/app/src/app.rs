@@ -16,6 +16,7 @@ use projects::{
     project_form_view::CreateProjectView,
     project_repository::ProjectRepository,
     projects_list_view::{events::ProjectListEvents, state::ProjectsListView},
+    tab_projects_view::TabProjectsView,
 };
 use settings::settings_view::SettingsView;
 use shared::{AppTab, db::DbPool, events::AppEvent};
@@ -29,6 +30,7 @@ pub struct AppShell {
     pub customer_tab_view: Entity<TabCustomerView>,
     pub create_project_view: Entity<CreateProjectView>,
     pub project_list_view: Entity<ProjectsListView>,
+    pub project_tab_view: Entity<TabProjectsView>,
 }
 
 impl AppShell {
@@ -134,6 +136,7 @@ impl AppShell {
         .detach();
 
         let project_list_view = ProjectsListView::view(window, cx);
+        let project_tab_view = TabProjectsView::view(window, cx, project_list_view.clone());
 
         Self::observe_tab_events(&sidebar, cx);
 
@@ -148,6 +151,7 @@ impl AppShell {
             customer_tab_view: tab_customers_view,
             create_project_view,
             project_list_view,
+            project_tab_view,
         }
     }
 
@@ -219,7 +223,7 @@ impl Render for AppShell {
             AppTab::Settings => self.settings_view.clone().into_any_element(),
             AppTab::CreateCustomer => self.create_customer_view.clone().into_any_element(),
             AppTab::Targetz => self.customer_tab_view.clone().into_any_element(),
-            AppTab::Projects => self.project_list_view.clone().into_any_element(),
+            AppTab::Projects => self.project_tab_view.clone().into_any_element(),
             _ => self.settings_view.clone().into_any_element(),
         };
 

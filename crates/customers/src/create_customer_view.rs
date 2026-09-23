@@ -293,6 +293,7 @@ impl CreateCustomerView {
             site_url: opt_str(self.get_value(CustomerFormFieldId::SiteUrl)),
             is_client: self.is_client,
             contacted: self.contacted,
+            created_at: String::new(),
         };
 
         let repository = self.repository.clone();

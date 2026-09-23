@@ -57,7 +57,8 @@ impl CustomerRepository {
                 instagram_url,
                 site_url,
                 is_client,
-                contacted
+                contacted,
+                created_at
             "#,
             customer.name,
             customer.email,

@@ -4,5 +4,5 @@ members = ["crates/app", "crates/customers", "crates/projects", "crates/settings
 [workspace.dependencies]
 gpui-kit = "0.6"
 gpui-fps = "0.6"
-sqlx = {version = "0.9", features = ["sqlite", "runtime-tokio"]}
+sqlx = {version = "0.9", features = ["sqlite", "runtime-smol"]}
 thiserror = "2.0.20"

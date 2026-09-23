@@ -1,5 +1,6 @@
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled,
+    base::Disableable,
     component::{
         ActiveTheme,
         button::{Button, ButtonVariants},

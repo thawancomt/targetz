@@ -3,8 +3,9 @@ use gpui_kit::{
     Window,
     base::{StyledExt, h_flex},
     component::{
-        ActiveTheme, IconName,
+        ActiveTheme, Icon, IconName, Theme, ThemeMode,
         button::{Button, ButtonVariants},
+        switch::Switch,
     },
     div,
     prelude::FluentBuilder,
@@ -46,6 +47,12 @@ impl Render for SidebarView {
                     .child(self.sidebar_item(AppTab::Settings, cx))
                     .child(self.sidebar_item(AppTab::Projects, cx)),
             )
+            .child(
+                div()
+                    .pt_2()
+                    .w_full()
+                    .child(self.theme_toggle_item(cx)),
+            )
     }
 }
 
@@ -64,6 +71,51 @@ impl SidebarView {
         self.active_tab = tab.clone();
         cx.emit(SidebarEvent::TabClick(tab));
         cx.notify();
+    }
+
+    pub fn toggle_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let is_dark = cx.theme().mode.is_dark();
+        let next_mode = if is_dark {
+            ThemeMode::Light
+        } else {
+            ThemeMode::Dark
+        };
+
+        Theme::change(next_mode, Some(window), cx);
+        Theme::global_mut(cx).font_family = "Geist Mono".into();
+        cx.notify();
+    }
+
+    fn theme_toggle_item(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let is_dark = cx.theme().mode.is_dark();
+        let (label, icon) = if is_dark {
+            ("Dark mode", IconName::Moon)
+        } else {
+            ("Light mode", IconName::Sun)
+        };
+
+        Button::new("theme-mode-toggle")
+            .w_full()
+            .secondary()
+            .child(
+                div()
+                    .flex_1()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(Icon::new(icon))
+                            .child(label),
+                    )
+                    .child(Switch::new("theme-switch").checked(is_dark)),
+            )
+            .on_click(cx.listener(|this, _event, window, cx| {
+                this.toggle_theme(window, cx);
+            }))
     }
 
     fn sidebar_item(&mut self, tab: AppTab, cx: &mut Context<Self>) -> impl IntoElement {
