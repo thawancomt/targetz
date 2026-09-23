@@ -1,7 +1,7 @@
 use gpui_kit::{
     Context, IntoElement, ParentElement, Render, Styled,
     base::v_flex,
-    component::{ActiveTheme, button::Button},
+    component::ActiveTheme,
     div,
     prelude::FluentBuilder,
 };
@@ -14,77 +14,109 @@ use crate::project_detail_view::{
 impl Render for ProjectRelationView {
     fn render(
         &mut self,
-        window: &mut gpui_kit::Window,
+        _window: &mut gpui_kit::Window,
         cx: &mut Context<Self>,
     ) -> impl gpui_kit::prelude::IntoElement {
-        let theme = cx.theme();
+        let theme = cx.theme().clone();
 
-        let current_stakeholders = self.stakeholders.clone().unwrap_or_default().clone();
+        let current_stakeholders = self.stakeholders.clone().unwrap_or_default();
 
         let customers: Vec<Customer> = self
             .customers
             .clone()
             .unwrap_or_default()
             .into_iter()
-            .filter(|c| !current_stakeholders.iter().find(|s| s.id == c.id).is_some())
+            .filter(|c| !current_stakeholders.iter().any(|s| s.id == c.id))
             .collect();
 
         let stakeholders = self.stakeholders_views.clone().unwrap_or_default();
 
+        let customer_views: Vec<_> = customers
+            .into_iter()
+            .map(|c| customer_item(c, cx).into_any_element())
+            .collect();
+
         v_flex()
+            .w_full()
+            .gap_4()
             .child(
-                div()
-                    .child(div().child("Relations"))
-                    .when(stakeholders.len() == 0, |d| {
+                v_flex()
+                    .gap_2()
+                    .child(
+                        div()
+                            .child(format!("Relations [{}]", stakeholders.len()))
+                            .text_lg()
+                            .text_color(theme.primary),
+                    )
+                    .when(stakeholders.is_empty(), |d| {
                         d.child(
                             div()
+                                .w_full()
+                                .p_4()
                                 .border_1()
                                 .border_color(theme.border)
-                                .flex_1()
-                                .justify_center()
+                                .rounded_md()
+                                .flex()
                                 .items_center()
-                                .p_2()
-                                .child("No customer to add"),
+                                .justify_center()
+                                .text_sm()
+                                .text_color(theme.muted_foreground)
+                                .child("No stakeholders added"),
                         )
                     })
-                    .when(stakeholders.len() > 0, |d| {
+                    .when(!stakeholders.is_empty(), |d| {
                         d.child(
                             div()
-                                .flex_1()
+                                .w_full()
                                 .p_2()
                                 .border_1()
                                 .border_color(theme.border)
-                                .children(stakeholders)
+                                .rounded_md()
                                 .grid()
-                                .gap_2(),
+                                .gap_2()
+                                .children(stakeholders),
                         )
                     }),
             )
             .child(
-                div().child(div().child("Customers")).child(
-                    div()
-                        .p_2()
-                        .border_1()
-                        .border_color(theme.border)
-                        .flex_1()
-                        .when(customers.len() == 0, |d| {
-                            d.child(
-                                div()
-                                    .flex_1()
-                                    .justify_center()
-                                    .items_center()
-                                    .p_2()
-                                    .child("No customer to add"),
-                            )
-                        })
-                        .children(
-                            customers
-                                .iter()
-                                .map(|c| customer_item(c.clone(), cx).into_any_element()),
+                v_flex()
+                    .gap_2()
+                    .child(
+                        div()
+                            .child(format!("Customers [{}]", customer_views.len()))
+                            .text_lg()
+                            .text_color(theme.primary),
+                    )
+                    .when(customer_views.is_empty(), |d| {
+                        d.child(
+                            div()
+                                .w_full()
+                                .p_4()
+                                .border_1()
+                                .border_color(theme.border)
+                                .rounded_md()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .text_sm()
+                                .text_color(theme.muted_foreground)
+                                .child("No customers available to add"),
                         )
-                        .grid()
-                        .gap_2(),
-                ),
+                    })
+                    .when(!customer_views.is_empty(), |d| {
+                        d.child(
+                            div()
+                                .w_full()
+                                .p_2()
+                                .border_1()
+                                .border_color(theme.border)
+                                .rounded_md()
+                                .grid()
+                                .gap_2()
+                                .children(customer_views),
+                        )
+                    }),
             )
     }
 }
+

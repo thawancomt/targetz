@@ -143,6 +143,7 @@ impl Render for ProjectDetailView {
                     )))
                     .child(div().p_2().child(self.relations_view.clone())),
             )
+            .child(div().child(Button::new("save-button").primary().label("Save changes")))
             .into_any_element()
     }
 }
