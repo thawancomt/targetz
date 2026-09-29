@@ -7,6 +7,8 @@ edition = "2024"
 shared = { path = "../shared" }
 sqlx.workspace = true
 thiserror.workspace = true
+gpui-kit.workspace = true
+gpui-fps.workspace = true
 blake3 = "1.5"
 uuid = { version = "1.10", features = ["v7"] }
 directories = "5.0"
@@ -15,6 +17,7 @@ tracing = "0.1"
 regex = "1.11"
 tokio = { version = "1.53.1", features = ["rt", "sync", "fs"] }
 pdf-inspector = "1.25.2"
+rfd = "0.17.2"
 
 [dev-dependencies]
 tempfile = "3.17"

@@ -58,7 +58,8 @@ impl Render for SidebarView {
                     .child(self.sidebar_item(AppTab::Home, IconName::LayoutDashboard, cx))
                     .child(self.sidebar_item(AppTab::Targetz, IconName::User, cx))
                     .child(self.sidebar_item(AppTab::Settings, IconName::Settings, cx))
-                    .child(self.sidebar_item(AppTab::Projects, IconName::Folder, cx)),
+                    .child(self.sidebar_item(AppTab::Projects, IconName::Folder, cx))
+                    .child(self.sidebar_item(AppTab::Documents, IconName::FileText, cx)),
             )
             .child(div().pt_2().w_full().child(self.theme_toggle_item(cx)))
     }

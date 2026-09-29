@@ -17,6 +17,13 @@ use projects::{
     projects_list_view::{events::ProjectListEvents, state::ProjectsListView},
     tab_projects_view::TabProjectsView,
 };
+use documents::{
+    document_manager::DocumentManager,
+    ui::{
+        project_documents_list_view::ProjectDocumentsListView,
+        tab_documents_view::TabDocumentsView,
+    }
+};
 use settings::settings_view::SettingsView;
 use shared::{db::DbPool, events::AppEvent, AppTab};
 use sidebar::sidebar_view::{SidebarEvent, SidebarView};
@@ -30,6 +37,8 @@ pub struct AppShell {
     pub project_list_view: Entity<ProjectsListView>,
     pub project_tab_view: Entity<TabProjectsView>,
     pub home_view: Entity<HomeView>,
+    pub documents_list_view: Entity<ProjectDocumentsListView>,
+    pub documents_tab_view: Entity<TabDocumentsView>,
 }
 
 impl AppShell {
@@ -94,6 +103,8 @@ impl AppShell {
 
         let project_list_view = ProjectsListView::view(window, cx);
         let project_tab_view = TabProjectsView::view(window, cx, project_list_view.clone());
+        let documents_list_view = ProjectDocumentsListView::view(window, cx);
+        let documents_tab_view = TabDocumentsView::view(window, cx, documents_list_view.clone());
         let home_view = HomeView::view(window, cx);
 
         let customer_tab_view_for_home = tab_customers_view.clone();
@@ -196,6 +207,8 @@ impl AppShell {
             project_list_view,
             project_tab_view,
             home_view,
+            documents_list_view,
+            documents_tab_view,
         }
     }
 
@@ -228,6 +241,22 @@ impl AppShell {
                             }),
                             Err(_e) => {}
                         };
+                    })
+                    .detach();
+                }
+                SidebarEvent::TabClick(AppTab::Documents) => {
+                    let doc_list_handle = this.documents_list_view.clone();
+                    let pool = cx.global::<DbPool>().0.clone();
+
+                    cx.spawn(async move |_this, cx| {
+                        if let Ok(manager) = DocumentManager::new(pool) {
+                            if let Ok(stats) = manager.get_project_document_stats().await {
+                                doc_list_handle.update(cx, |view, cx| {
+                                    view.with_projects(stats, cx);
+                                    cx.notify();
+                                });
+                            }
+                        }
                     })
                     .detach();
                 }
@@ -279,6 +308,7 @@ impl Render for AppShell {
             AppTab::Settings => self.settings_view.clone().into_any_element(),
             AppTab::Targetz => self.customer_tab_view.clone().into_any_element(),
             AppTab::Projects => self.project_tab_view.clone().into_any_element(),
+            AppTab::Documents => self.documents_tab_view.clone().into_any_element(),
             _ => self.home_view.clone().into_any_element(),
         };
 

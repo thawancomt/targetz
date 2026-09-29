@@ -50,3 +50,23 @@ impl TryFrom<&str> for CustomerDocumentStatus {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct ProjectDocumentStats {
+    pub project_id: i64,
+    pub project_name: String,
+    pub document_count: i64,
+    pub customer_count: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct DocumentWithCustomers {
+    pub id: i64,
+    pub hash: String,
+    pub extension: String,
+    pub mtime: i64,
+    pub original_name: String,
+    pub path: String,
+    // Comma-separated list of customer IDs, could be parsed as needed
+    pub customer_ids: Option<String>,
+}

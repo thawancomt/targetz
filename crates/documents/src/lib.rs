@@ -14,3 +14,4 @@ pub use relation_manager::{
     DocumentProcessingError, RelationManager, RelationManagerError, RelationManagerEvent,
     RelationsResult,
 };
+pub mod ui;

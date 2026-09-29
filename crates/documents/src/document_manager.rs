@@ -200,7 +200,7 @@ pub struct DocumentManager {
 impl DocumentManager {
     /// Construct DocumentManager resolving the base data directory from system ProjectDirs
     pub fn new(pool: Pool<Sqlite>) -> Result<Self, DocumentManagerError> {
-        let proj_dirs = ProjectDirs::from("com", "targetz", "targetz").ok_or_else(|| {
+        let proj_dirs = ProjectDirs::from("software", "whatever", "targetz").ok_or_else(|| {
             DocumentManagerError::DataDirInit("Failed to resolve project directories".to_string())
         })?;
         let data_dir = proj_dirs.data_dir().to_path_buf();
@@ -417,10 +417,7 @@ impl DocumentManager {
         .map_err(|e| UploadDocumentError::DatabaseFailure(e.to_string()))?;
 
         if existing.is_some() {
-            return Err(UploadDocumentError::DuplicateHashInProject {
-                hash,
-                project_id,
-            });
+            return Err(UploadDocumentError::DuplicateHashInProject { hash, project_id });
         }
 
         // 3. Copy file into data dir under UUIDv7 name, then remove source
@@ -439,15 +436,6 @@ impl DocumentManager {
                 reason: e.to_string(),
             }
         })?;
-
-        if let Err(e) = std::fs::remove_file(file_path) {
-            // Attempt compensation if removing source fails
-            let _ = std::fs::remove_file(&target_path);
-            return Err(UploadDocumentError::SourceFileRemovalFailed {
-                path: file_path.to_path_buf(),
-                reason: e.to_string(),
-            });
-        }
 
         // 4. Open transaction and insert
         let mut tx = match self.pool.begin().await {
@@ -792,5 +780,59 @@ impl DocumentManager {
                 );
             }
         }
+    }
+}
+
+impl DocumentManager {
+    pub async fn get_project_document_stats(
+        &self,
+    ) -> Result<Vec<crate::models::ProjectDocumentStats>, sqlx::Error> {
+        let stats = sqlx::query_as!(
+            crate::models::ProjectDocumentStats,
+            r#"
+            SELECT
+                p.id as project_id,
+                p.name as project_name,
+                COUNT(DISTINCT pd.document_id) as document_count,
+                COUNT(DISTINCT pdc.customer_id) as customer_count
+            FROM projects p
+            LEFT JOIN project_document pd ON p.id = pd.project_id
+            LEFT JOIN project_document_customer pdc ON p.id = pdc.project_id
+            GROUP BY p.id
+            ORDER BY p.name ASC
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(stats)
+    }
+
+    pub async fn get_project_documents(
+        &self,
+        project_id: i64,
+    ) -> Result<Vec<crate::models::DocumentWithCustomers>, sqlx::Error> {
+        let docs = sqlx::query_as!(
+            crate::models::DocumentWithCustomers,
+            r#"
+            SELECT
+                d.id,
+                d.hash,
+                d.extension,
+                d.mtime,
+                d.original_name,
+                d.path,
+                CAST(GROUP_CONCAT(pdc.customer_id) AS TEXT) as customer_ids
+            FROM documents d
+            INNER JOIN project_document pd ON d.id = pd.document_id
+            LEFT JOIN project_document_customer pdc ON d.id = pdc.document_id AND pd.project_id = pdc.project_id
+            WHERE pd.project_id = ?
+            GROUP BY d.id
+            ORDER BY d.original_name ASC
+            "#,
+            project_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(docs)
     }
 }

@@ -64,13 +64,6 @@ async fn get_db() -> Result<Pool<Sqlite>, AppError> {
 fn main() {
     let app = gpui_kit::application().with_assets(gpui_kit::assets::Assets);
 
-    // ÚNICA mudança real: get_db().await vira block_on(get_db()).
-    // Isso roda ANTES do GPUI assumir a thread principal — nesse
-    // instante ainda não existe event loop nenhum disputando nada,
-    // então driblar a future até o fim aqui é seguro. Não sobra
-    // runtime nenhum vivo depois desta linha: o backend `runtime-smol`
-    // do sqlx não precisa de um runtime "guardado" — o reactor dele já
-    // roda numa thread global própria, independente de quem faz .await.
     let pool = block_on(get_db()).expect("Failed to get database");
 
     app.run(move |cx| {
@@ -83,6 +76,7 @@ fn main() {
         let registry = ThemeRegistry::global(cx);
         if let Some(theme) = registry.themes().get(&dark_name).cloned() {
             Theme::global_mut(cx).font_family = "Geist Mono".into();
+            Theme::global_mut(cx).radius = px(0.);
             Theme::global_mut(cx).apply_config(&theme);
             Theme::sync_base(cx);
         }

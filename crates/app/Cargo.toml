@@ -16,6 +16,7 @@ sidebar  =  {path ="../sidebar"}
 settings  =  {path ="../settings"}
 customers  =  {path ="../customers"}
 projects  =  {path ="../projects"}
+documents  =  {path ="../documents"}
 dotenv = "0.15.0"
 tokio = { version = "1.53.1", features = ["full"]}
 
