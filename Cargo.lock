@@ -1725,9 +1725,11 @@ name = "documents"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "customers",
  "directories",
  "gpui-fps",
  "gpui-kit",
+ "open",
  "pdf-inspector",
  "rayon",
  "regex",

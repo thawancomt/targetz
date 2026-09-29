@@ -8,7 +8,7 @@ pub use document_manager::{
     DocumentManagerEvent, GetDocumentError, ReplaceDocumentError, UploadDocumentError,
     UploadDocumentsResult, UploadFailure,
 };
-pub use extractor::{pdf_extractor::PdfExtractor, DocumentExtractorService, ExtractorError};
+pub use extractor::{DocumentExtractorService, ExtractorError, pdf_extractor::PdfExtractor};
 pub use models::{CustomerDocumentStatus, Document, ProjectDocument, ProjectDocumentCustomer};
 pub use relation_manager::{
     DocumentProcessingError, RelationManager, RelationManagerError, RelationManagerEvent,

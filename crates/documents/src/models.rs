@@ -70,3 +70,20 @@ pub struct DocumentWithCustomers {
     // Comma-separated list of customer IDs, could be parsed as needed
     pub customer_ids: Option<String>,
 }
+
+impl DocumentWithCustomers {
+    /// Distinct customer ids parsed from the comma-separated `customer_ids`.
+    pub fn customer_id_set(&self) -> std::collections::HashSet<&str> {
+        self.customer_ids
+            .as_deref()
+            .into_iter()
+            .flat_map(|ids| ids.split(','))
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .collect()
+    }
+
+    pub fn customer_count(&self) -> usize {
+        self.customer_id_set().len()
+    }
+}

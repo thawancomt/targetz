@@ -198,13 +198,18 @@ pub struct DocumentManager {
 }
 
 impl DocumentManager {
-    /// Construct DocumentManager resolving the base data directory from system ProjectDirs
-    pub fn new(pool: Pool<Sqlite>) -> Result<Self, DocumentManagerError> {
+    /// Base data directory resolved from system ProjectDirs. Stored document
+    /// paths are relative to it.
+    pub fn default_data_dir() -> Result<PathBuf, DocumentManagerError> {
         let proj_dirs = ProjectDirs::from("software", "whatever", "targetz").ok_or_else(|| {
             DocumentManagerError::DataDirInit("Failed to resolve project directories".to_string())
         })?;
-        let data_dir = proj_dirs.data_dir().to_path_buf();
-        Self::with_data_dir(pool, data_dir)
+        Ok(proj_dirs.data_dir().to_path_buf())
+    }
+
+    /// Construct DocumentManager resolving the base data directory from system ProjectDirs
+    pub fn new(pool: Pool<Sqlite>) -> Result<Self, DocumentManagerError> {
+        Self::with_data_dir(pool, Self::default_data_dir()?)
     }
 
     /// Construct DocumentManager with an explicit data directory path
@@ -805,6 +810,40 @@ impl DocumentManager {
         .fetch_all(&self.pool)
         .await?;
         Ok(stats)
+    }
+
+    /// Persists discovered document -> customer relations for `project_id`.
+    ///
+    /// New links are stored as `not_confirmed`. Links that already exist are
+    /// left untouched, so a customer the user already confirmed is never reset.
+    /// Runs in a single transaction. Returns how many new links were created.
+    pub async fn save_relations(
+        &self,
+        project_id: i64,
+        relations: &crate::relation_manager::RelationsResult,
+    ) -> Result<u64, sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        let mut inserted = 0;
+
+        for (document_id, customers) in &relations.relations {
+            for customer in customers {
+                let result = sqlx::query(
+                    "INSERT OR IGNORE INTO project_document_customer \
+                     (project_id, customer_id, document_id, status) \
+                     VALUES (?, ?, ?, ?)",
+                )
+                .bind(project_id)
+                .bind(customer.id)
+                .bind(document_id)
+                .bind(crate::models::CustomerDocumentStatus::NotConfirmed.as_str())
+                .execute(&mut *tx)
+                .await?;
+                inserted += result.rows_affected();
+            }
+        }
+
+        tx.commit().await?;
+        Ok(inserted)
     }
 
     pub async fn get_project_documents(

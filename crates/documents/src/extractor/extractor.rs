@@ -1,6 +1,6 @@
+use crate::extractor::pdf_extractor::{PdfExtractor, PdfExtractorError};
 use std::path::Path;
 use thiserror::Error;
-use crate::extractor::pdf_extractor::{PdfExtractor, PdfExtractorError};
 
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum ExtractorError {
@@ -58,7 +58,9 @@ impl DocumentExtractorService {
                     reason: err.to_string(),
                 })
             }
-            unsupported => Err(ExtractorError::UnsupportedExtension(unsupported.to_string())),
+            unsupported => Err(ExtractorError::UnsupportedExtension(
+                unsupported.to_string(),
+            )),
         }
     }
 }

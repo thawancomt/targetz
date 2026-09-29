@@ -252,7 +252,9 @@ impl RelationManager {
             r"(?i)(?:^|[^a-zA-Z0-9_.+-]){}(?:$|[^a-zA-Z0-9_.+-])",
             regex::escape(email)
         );
-        Regex::new(&pattern).map(|re| re.is_match(text)).unwrap_or(false)
+        Regex::new(&pattern)
+            .map(|re| re.is_match(text))
+            .unwrap_or(false)
     }
 
     /// URL matching: case-insensitive, must not match inside larger token
@@ -261,7 +263,9 @@ impl RelationManager {
             r"(?i)(?:^|[^a-zA-Z0-9_.-]){}(?:$|[^a-zA-Z0-9_.-])",
             regex::escape(url)
         );
-        Regex::new(&pattern).map(|re| re.is_match(text)).unwrap_or(false)
+        Regex::new(&pattern)
+            .map(|re| re.is_match(text))
+            .unwrap_or(false)
     }
 
     /// Normalize phone number to digits, ignoring Portugal +351 / 351 prefix
@@ -282,7 +286,9 @@ impl RelationManager {
 
         // Find candidate phone number strings in the text
         // Looks for sequences of digits separated by spaces, dashes, dots, slashes, or parentheses
-        let phone_candidate_regex = match Regex::new(r"(?:\+?351[\s./-]*)?(?:\(?\d{2,4}\)?[\s./-]*\d{2,4}[\s./-]*\d{2,4}|\d{8,15})") {
+        let phone_candidate_regex = match Regex::new(
+            r"(?:\+?351[\s./-]*)?(?:\(?\d{2,4}\)?[\s./-]*\d{2,4}[\s./-]*\d{2,4}|\d{8,15})",
+        ) {
             Ok(re) => re,
             Err(_) => return false,
         };

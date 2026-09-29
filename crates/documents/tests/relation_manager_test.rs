@@ -7,9 +7,9 @@ use documents::{
     RelationManager,
 };
 use shared::customer::Customer;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::Pool;
 use sqlx::Sqlite;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tempfile::tempdir;
 
 async fn setup_test_db() -> Pool<Sqlite> {
@@ -66,12 +66,10 @@ async fn test_scanned_pdf_fails_while_text_documents_succeed() {
     let data_temp = tempdir().unwrap();
     let source_temp = tempdir().unwrap();
 
-    sqlx::query!(
-        "INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     let doc_mgr = DocumentManager::with_data_dir(pool.clone(), data_temp.path().to_path_buf())
         .expect("Failed to init DocumentManager");
@@ -92,9 +90,7 @@ async fn test_scanned_pdf_fails_while_text_documents_succeed() {
         b"[OCR_REQUIRED] Binary image data",
     );
 
-    let upload_res = doc_mgr
-        .upload_documents(&[file1, file2_scanned], 1)
-        .await;
+    let upload_res = doc_mgr.upload_documents(&[file1, file2_scanned], 1).await;
     assert_eq!(upload_res.successes.len(), 2);
 
     let doc1_id = upload_res.successes[0].id;
@@ -130,12 +126,10 @@ async fn test_targeted_matching_rules() {
     let data_temp = tempdir().unwrap();
     let source_temp = tempdir().unwrap();
 
-    sqlx::query!(
-        "INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     let doc_mgr = DocumentManager::with_data_dir(pool.clone(), data_temp.path().to_path_buf())
         .expect("Failed to init DocumentManager");
@@ -181,19 +175,31 @@ async fn test_targeted_matching_rules() {
     let matched_ids: Vec<i64> = matched.iter().map(|c| c.id).collect();
 
     // c_joao must NOT match (maria.joao@gmail.com is distinct from joao@gmail.com)
-    assert!(!matched_ids.contains(&1), "joao@gmail.com should not match inside maria.joao@gmail.com");
+    assert!(
+        !matched_ids.contains(&1),
+        "joao@gmail.com should not match inside maria.joao@gmail.com"
+    );
 
     // c_ana matches (case-insensitive email)
-    assert!(matched_ids.contains(&2), "ana@gmail.com should match ANA@GMAIL.COM");
+    assert!(
+        matched_ids.contains(&2),
+        "ana@gmail.com should match ANA@GMAIL.COM"
+    );
 
     // c_carlos matches (+351 912 345 678 normalized matches 912345678)
-    assert!(matched_ids.contains(&3), "912345678 should match +351 912 345 678");
+    assert!(
+        matched_ids.contains(&3),
+        "912345678 should match +351 912 345 678"
+    );
 
     // c_site matches URL
     assert!(matched_ids.contains(&4), "targetz.com should match URL");
 
     // c_empty must NOT match
-    assert!(!matched_ids.contains(&5), "Empty customer identifiers should never match");
+    assert!(
+        !matched_ids.contains(&5),
+        "Empty customer identifiers should never match"
+    );
 }
 
 #[tokio::test]
@@ -202,12 +208,10 @@ async fn test_matching_determinism_across_runs() {
     let data_temp = tempdir().unwrap();
     let source_temp = tempdir().unwrap();
 
-    sqlx::query!(
-        "INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     let doc_mgr = DocumentManager::with_data_dir(pool.clone(), data_temp.path().to_path_buf())
         .expect("Failed to init DocumentManager");

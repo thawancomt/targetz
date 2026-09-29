@@ -3,9 +3,9 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use documents::{DocumentManager, ReplaceDocumentError, UploadDocumentError};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::Pool;
 use sqlx::Sqlite;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tempfile::tempdir;
 
 async fn setup_test_db() -> Pool<Sqlite> {
@@ -78,7 +78,11 @@ async fn test_batch_upload_with_duplicate_fails_duplicate_only_and_cleans_disk()
         .unwrap()
         .map(|e| e.unwrap().path())
         .collect();
-    assert_eq!(entries.len(), 2, "Only successful uploads should remain on disk");
+    assert_eq!(
+        entries.len(),
+        2,
+        "Only successful uploads should remain on disk"
+    );
 }
 
 #[tokio::test]
@@ -87,25 +91,29 @@ async fn test_same_file_in_different_projects_allowed() {
     let data_temp = tempdir().unwrap();
     let source_temp = tempdir().unwrap();
 
-    sqlx::query!(
-        "INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
-    sqlx::query!(
-        "INSERT INTO projects (id, name, current_version) VALUES (2, 'Project 2', '1.0')"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (2, 'Project 2', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     let doc_mgr = DocumentManager::with_data_dir(pool.clone(), data_temp.path().to_path_buf())
         .expect("Failed to init DocumentManager");
 
-    let file_p1 = create_temp_file(&source_temp, "contract.pdf", b"Same file content across projects");
-    let file_p2 = create_temp_file(&source_temp, "contract_copy.pdf", b"Same file content across projects");
+    let file_p1 = create_temp_file(
+        &source_temp,
+        "contract.pdf",
+        b"Same file content across projects",
+    );
+    let file_p2 = create_temp_file(
+        &source_temp,
+        "contract_copy.pdf",
+        b"Same file content across projects",
+    );
 
     let res1 = doc_mgr.upload_documents(&[file_p1], 1).await;
     assert_eq!(res1.successes.len(), 1);
@@ -130,12 +138,10 @@ async fn test_replace_document_success() {
     let data_temp = tempdir().unwrap();
     let source_temp = tempdir().unwrap();
 
-    sqlx::query!(
-        "INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     sqlx::query!(
         "INSERT INTO customers (id, name, email, phone_number) VALUES (10, 'Cust A', 'a@test.com', '912345678')"
@@ -196,12 +202,10 @@ async fn test_failed_replace_with_identical_hash_leaves_old_intact() {
     let data_temp = tempdir().unwrap();
     let source_temp = tempdir().unwrap();
 
-    sqlx::query!(
-        "INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     let doc_mgr = DocumentManager::with_data_dir(pool.clone(), data_temp.path().to_path_buf())
         .expect("Failed to init DocumentManager");
@@ -246,12 +250,10 @@ async fn test_delete_document_removes_pivots_and_physical_file() {
     let data_temp = tempdir().unwrap();
     let source_temp = tempdir().unwrap();
 
-    sqlx::query!(
-        "INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     sqlx::query!(
         "INSERT INTO customers (id, name, email, phone_number) VALUES (10, 'Cust A', 'a@test.com', '912345678')"
@@ -291,16 +293,22 @@ async fn test_delete_document_removes_pivots_and_physical_file() {
     assert!(doc_mgr.get_document(doc.id).await.is_err());
 
     // Verify cascade deleted from project_document and project_document_customer
-    let pd_count = sqlx::query_scalar!("SELECT COUNT(*) FROM project_document WHERE document_id = ?", doc.id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let pd_count = sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM project_document WHERE document_id = ?",
+        doc.id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert_eq!(pd_count, 0);
 
-    let pdc_count = sqlx::query_scalar!("SELECT COUNT(*) FROM project_document_customer WHERE document_id = ?", doc.id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let pdc_count = sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM project_document_customer WHERE document_id = ?",
+        doc.id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert_eq!(pdc_count, 0);
 
     // Physical file deleted

@@ -1,15 +1,20 @@
+use crate::models::ProjectDocumentStats;
+use crate::ui::project_document_detail_view::{
+    ProjectDocumentDetailView, events::DocumentDetailEvents,
+};
+use crate::ui::project_documents_list_view::{
+    ProjectDocumentsListView, events::DocumentListEvents,
+};
 use gpui_kit::{
-    App, Context, Entity, ParentElement, Render, Window,
-    base::StyledExt, AppContext, Styled, IntoElement,
+    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
+    base::StyledExt,
     component::{
-        ActiveTheme, IconName, button::{Button, ButtonVariants},
-        tab::{TabBar, Tab},
+        ActiveTheme, IconName,
+        button::{Button, ButtonVariants},
+        tab::{Tab, TabBar},
     },
     div,
 };
-use crate::models::ProjectDocumentStats;
-use crate::ui::project_documents_list_view::{ProjectDocumentsListView, events::DocumentListEvents};
-use crate::ui::project_document_detail_view::ProjectDocumentDetailView;
 
 pub enum ActiveDocumentView {
     AllDocuments,
@@ -32,27 +37,47 @@ pub struct TabDocumentsView {
 }
 
 impl TabDocumentsView {
-    pub fn view(window: &mut Window, cx: &mut App, list_view: Entity<ProjectDocumentsListView>) -> Entity<Self> {
+    pub fn view(
+        window: &mut Window,
+        cx: &mut App,
+        list_view: Entity<ProjectDocumentsListView>,
+    ) -> Entity<Self> {
         let detail_view = ProjectDocumentDetailView::view(window, cx, None);
         cx.new(|cx| Self::new(window, cx, list_view, detail_view))
     }
 
-    pub fn new(window: &mut Window, cx: &mut Context<Self>, list_view: Entity<ProjectDocumentsListView>, detail_view: Entity<ProjectDocumentDetailView>) -> Self {
+    pub fn new(
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        list_view: Entity<ProjectDocumentsListView>,
+        detail_view: Entity<ProjectDocumentDetailView>,
+    ) -> Self {
         cx.subscribe_in(
             &list_view,
             window,
             move |tab_view, _, event, window, cx| match event {
                 DocumentListEvents::OpenProject(project_stats) => {
                     tab_view.state = ActiveDocumentView::Project(project_stats.clone());
-                    tab_view
-                        .detail_view
-                        .update(cx, |detail, detail_cx| {
-                            detail.set_project(project_stats.clone(), window, detail_cx);
-                        });
+                    tab_view.detail_view.update(cx, |detail, detail_cx| {
+                        detail.set_project(project_stats.clone(), window, detail_cx);
+                    });
                     cx.notify();
                 }
             },
-        ).detach();
+        )
+        .detach();
+
+        cx.subscribe(&detail_view, |tab_view, _, event, cx| match event {
+            DocumentDetailEvents::DocumentsUploaded {
+                project_id,
+                documents,
+            } => {
+                tab_view.list_view.update(cx, |list, list_cx| {
+                    list.update_project_documents(*project_id, documents, list_cx);
+                });
+            }
+        })
+        .detach();
 
         Self {
             state: ActiveDocumentView::AllDocuments,
@@ -63,7 +88,11 @@ impl TabDocumentsView {
 }
 
 impl Render for TabDocumentsView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl gpui_kit::prelude::IntoElement {
+    fn render(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl gpui_kit::prelude::IntoElement {
         let mut tabs = TabBar::new("documents-tabs")
             .selected_index(self.state.selected_index())
             .child(Tab::new().label("All Projects"));
@@ -78,8 +107,8 @@ impl Render for TabDocumentsView {
                             this.state = ActiveDocumentView::AllDocuments;
                             cx.notify();
                         }))
-                        .child(IconName::Close)
-                )
+                        .child(IconName::Close),
+                ),
             );
         }
 

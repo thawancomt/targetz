@@ -61,7 +61,8 @@ async fn get_db() -> Result<Pool<Sqlite>, AppError> {
     Ok(pool)
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let app = gpui_kit::application().with_assets(gpui_kit::assets::Assets);
 
     let pool = block_on(get_db()).expect("Failed to get database");
@@ -93,6 +94,7 @@ fn main() {
                     ..Default::default()
                 },
                 |window, cx| {
+                    window.set_window_title("Targetz");
                     cx.set_global(DbPool(pool));
                     let view = AppShell::view(window, cx);
                     cx.new(|cx| Root::new(view, window, cx))

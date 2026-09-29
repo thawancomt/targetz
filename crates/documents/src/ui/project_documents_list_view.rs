@@ -1,4 +1,6 @@
-use crate::models::ProjectDocumentStats;
+use std::collections::HashSet;
+
+use crate::models::{DocumentWithCustomers, ProjectDocumentStats};
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, ParentElement, Render, Styled, Window,
     base::StyledExt,
@@ -32,6 +34,29 @@ impl ProjectDocumentsListView {
 
     pub fn with_projects(&mut self, projects: Vec<ProjectDocumentStats>, cx: &mut Context<Self>) {
         self.projects = projects;
+        cx.notify();
+    }
+
+    /// Refreshes the document and (distinct) customer counts of `project_id`
+    /// from its up-to-date `documents`.
+    pub fn update_project_documents(
+        &mut self,
+        project_id: i64,
+        documents: &[DocumentWithCustomers],
+        cx: &mut Context<Self>,
+    ) {
+        let Some(project) = self
+            .projects
+            .iter_mut()
+            .find(|p| p.project_id == project_id)
+        else {
+            return;
+        };
+
+        let customers: HashSet<&str> = documents.iter().flat_map(|d| d.customer_id_set()).collect();
+
+        project.document_count = documents.len() as i64;
+        project.customer_count = customers.len() as i64;
         cx.notify();
     }
 }
