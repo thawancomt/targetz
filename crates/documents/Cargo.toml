@@ -1,0 +1,21 @@
+[package]
+name = "documents"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shared = { path = "../shared" }
+sqlx.workspace = true
+thiserror.workspace = true
+blake3 = "1.5"
+uuid = { version = "1.10", features = ["v7"] }
+directories = "5.0"
+rayon = "1.10"
+tracing = "0.1"
+regex = "1.11"
+tokio = { version = "1.53.1", features = ["rt", "sync", "fs"] }
+pdf-inspector = "1.25.2"
+
+[dev-dependencies]
+tempfile = "3.17"
+tokio = { version = "1.53.1", features = ["full"] }
