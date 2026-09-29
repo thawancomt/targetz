@@ -35,8 +35,8 @@ impl Render for ProjectsListView {
                         div()
                             .child(
                                 Button::new("open-create-project-dialog")
-                                    .label("Create dialog")
-                                    .secondary()
+                                    .label("Create project")
+                                    .primary()
                                     .on_click(cx.listener(|this, _e, window, cx| {
                                         this.open_create_project_dilaog(window, cx);
                                     })),

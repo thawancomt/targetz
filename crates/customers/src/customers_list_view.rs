@@ -10,11 +10,12 @@ use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, FontWeight, InteractiveElement, IntoElement,
     ParentElement, Render, Styled, Window,
 };
-use gpui_kit::{base::Disableable, div};
+use gpui_kit::{base::Disableable, div, px};
 use shared::customer::{Customer, Persisted};
 use shared::db::DbPool;
 use shared::events::AppEvent;
 
+use crate::create_customer_view::{CreateCustomerEvent, CreateCustomerView};
 use crate::customer_repository::CustomerRepository;
 
 pub enum CustomerListViewEvent {
@@ -57,6 +58,7 @@ pub struct CustomerListView {
     pub repository: CustomerRepository,
 
     pub open_customers: Vec<Customer<Persisted>>,
+    pub create_customer_view: Entity<CreateCustomerView>,
 }
 
 pub fn tag_item(label: &str, value: String, cx: &Context<CustomerListView>) -> impl IntoElement {
@@ -215,7 +217,25 @@ impl Render for CustomerListView {
             .max_h_full()
             .child(
                 div()
-                    .child(Input::new(&self.query_input).prefix(Icon::new(IconName::Search)))
+                    .flex()
+                    .gap_2()
+                    .items_center()
+                    .child(
+                        div()
+                            .flex_1()
+                            .child(Input::new(&self.query_input).prefix(Icon::new(IconName::Search))),
+                    )
+                    .child(
+                        Button::new("open-create-customer-dialog")
+                            .primary()
+                            .label("New Customer")
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.open_create_customer_dialog(window, cx);
+                            })),
+                    )
+            )
+            .child(
+                div()
                     .child(
                         Accordion::new("Filters")
                             .item(|item| {
@@ -401,6 +421,21 @@ impl CustomerListView {
         })
         .detach();
 
+        let create_customer_view = CreateCustomerView::view(window, cx);
+
+        cx.subscribe(
+            &create_customer_view,
+            |this, _create_view, event, cx| match event {
+                CreateCustomerEvent::Created(new_customer) => {
+                    this.hydrate_customers(cx);
+                    cx.emit(CustomerListViewEvent::OPEN(new_customer.clone()));
+                    cx.notify();
+                }
+                _ => {}
+            },
+        )
+        .detach();
+
         Self {
             customers: Vec::new(),
             filtered_customers: Vec::new(),
@@ -410,7 +445,22 @@ impl CustomerListView {
             query_input,
             filters: Vec::new(),
             filter_expanded: false,
+            create_customer_view,
         }
+    }
+
+    pub fn open_create_customer_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let view = self.create_customer_view.clone();
+        view.update(cx, |this, cx| this.reset_form(window, cx));
+
+        window.open_dialog(cx, move |dialog, _window, _cx| {
+            dialog
+                .title("Create Customer")
+                .child(view.clone())
+                .w(px(560.))
+        });
+
+        cx.notify();
     }
 
     pub fn toggle_filter_accordion(&mut self) {

@@ -9,12 +9,11 @@ use gpui_kit::{
 use shared::{
     customer::Customer,
     db::DbPool,
+    form_utils::{date_input, select, text_input},
     project::{ProjectDraft, ProjectStatus},
 };
 
-use crate::{
-    project_form_view::events::CreateProjectEvents, project_repository::ProjectRepository,
-};
+use crate::{project_form_view::events::CreateProjectEvent, project_repository::ProjectRepository};
 
 pub struct CreateProjectView {
     pub(super) name: Entity<InputState>,
@@ -31,21 +30,6 @@ pub struct CreateProjectView {
 
     pub repository: ProjectRepository,
     pub(super) customers: Option<Vec<Customer>>,
-}
-
-pub(super) fn text(input: &Entity<InputState>, cx: &App) -> String {
-    input.read(cx).text().to_string()
-}
-
-pub(super) fn date(input: &Entity<DatePickerState>, cx: &App) -> String {
-    input.read(cx).date().to_string()
-}
-
-pub(super) fn select(input: &Entity<SelectState<Vec<&'static str>>>, cx: &App) -> String {
-    match input.read(cx).selected_value() {
-        Some(value) => value.to_string(),
-        None => String::new(),
-    }
 }
 
 pub fn parse_budget(value: String) -> f64 {
@@ -129,16 +113,23 @@ impl CreateProjectView {
     }
 
     pub fn create_project(&self, cx: &mut Context<Self>) {
+        let status = match select(&self.status, cx) {
+            Some(s) => ProjectStatus::from(s),
+            _ => ProjectStatus::Started,
+        };
+
         let project_draft: ProjectDraft = ProjectDraft {
-            name: text(&self.name, cx),
-            current_version: text(&self.version, cx),
-            status: ProjectStatus::from(select(&self.status, cx)),
-            description: Some(text(&self.description, cx)),
-            start_date: Some(date(&self.start_date, cx)),
-            site_url: Some(text(&self.name, cx)),
-            codename: Some(text(&self.codename, cx)),
-            target_deadline: Some(date(&self.target_deadline, cx)),
-            budget: Some(parse_budget(text(&self.budget, cx))),
+            name: text_input(&self.name, cx).unwrap_or("default".to_string()),
+            current_version: text_input(&self.version, cx).unwrap_or("0.1".to_string()),
+            status,
+            description: text_input(&self.description, cx),
+            start_date: date_input(&self.start_date, cx),
+            site_url: text_input(&self.name, cx),
+            codename: text_input(&self.codename, cx),
+            target_deadline: date_input(&self.target_deadline, cx),
+            budget: Some(parse_budget(
+                text_input(&self.budget, cx).unwrap_or("0.".to_string()),
+            )),
         };
 
         let repository = self.repository.clone();
@@ -149,7 +140,7 @@ impl CreateProjectView {
                     println!("new project created {}", new_project.name);
 
                     let _ = this.update(cx, |_, cx| {
-                        cx.emit(CreateProjectEvents::CreatedProject(new_project));
+                        cx.emit(CreateProjectEvent::CreatedProject(new_project));
                         cx.notify();
                     });
                 }
@@ -162,4 +153,4 @@ impl CreateProjectView {
     }
 }
 
-impl EventEmitter<CreateProjectEvents> for CreateProjectView {}
+impl EventEmitter<CreateProjectEvent> for CreateProjectView {}

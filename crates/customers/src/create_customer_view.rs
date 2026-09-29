@@ -10,10 +10,12 @@ use gpui_kit::{
         button::{Button, ButtonVariants},
         form::Field,
         input::{Input, InputState},
+        scroll::ScrollableElement,
         switch::Switch,
     },
     div,
     prelude::FluentBuilder,
+    px,
 };
 use shared::{
     customer::{Customer, Draft},
@@ -92,54 +94,41 @@ fn field(label: String, input: &Entity<InputState>) -> impl IntoElement {
 }
 
 fn switch_field(label: String, child: impl IntoElement) -> impl IntoElement {
-    Field::new()
-        .label(label)
-        .bg(AppColors::Border.hsla())
-        .p_2()
-        .w_auto()
-        .rounded_md()
-        .child(child)
+    Field::new().label(label).p_2().w_auto().child(child)
 }
 
 impl Render for CreateCustomerView {
     fn render(
         &mut self,
-        _window: &mut gpui_kit::Window,
+        window: &mut gpui_kit::Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let name_val = self.get_value(CustomerFormFieldId::Name);
+        let wide = window.viewport_size().width >= px(768. + 300.);
 
         div()
-            .flex_1()
-            .h_full()
             .p_2()
-            .child(
-                div()
-                    .child(if name_val.len() > 3 {
-                        name_val.to_string()
-                    } else {
-                        "Create a new Customer".to_string()
-                    })
-                    .text_2xl(),
-            )
+            .flex()
+            .flex_col()
             .gap_2()
+            .overflow_y_scrollbar()
             .child(
                 div()
-                    .flex_1()
-                    .items_center()
-                    .justify_center()
+                    .grid()
+                    .grid_cols(if wide { 2 } else { 1 })
+                    .gap_2()
                     .children(TEXT_FIELDS.iter().map(|desc| {
                         let input = &self.text_fields.get(&desc.id).unwrap().input;
                         field(desc.label.to_string(), input)
                     }))
                     .child(
                         div()
+                            .col_span_full()
                             .flex()
                             .w_full()
                             .gap_2()
                             .mt_2()
                             .child(switch_field(
-                                "Have been contaced?".to_string(),
+                                "Have been contacted?".to_string(),
                                 Switch::new("contacted").checked(self.contacted).on_change(
                                     cx.listener(|this, value, _window, cx| {
                                         this.set_contacted(*value);
@@ -158,38 +147,32 @@ impl Render for CreateCustomerView {
                             )),
                     ),
             )
-            .child(format!("{}", self.was_edited))
             .child(
-                Button::new("create customer")
-                    .primary()
-                    .disabled(!self.was_edited)
-                    .child("Save")
-                    .flex_shrink_0()
-                    .mt_2()
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        let first_name = this
-                            .get_value(CustomerFormFieldId::Name)
-                            .split_whitespace()
-                            .next()
-                            .unwrap_or("")
-                            .to_string();
-                        this.save_customer(cx);
-                        window.push_notification(format!("Customer {first_name} created"), cx);
-                        cx.notify();
-                    })),
-            )
-            .child(
-                Button::new("reset-form")
-                    .disabled(self.was_edited)
-                    .ghost()
-                    .label("Reset")
-                    .flex_shrink_0()
-                    .mt_2()
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        this.reset_form(window, cx);
-                        window.push_notification("Form reseted", cx);
-                        cx.notify();
-                    })),
+                div()
+                    .flex()
+                    .justify_end()
+                    .gap_2()
+                    .mt_3()
+                    .child(
+                        Button::new("reset-form")
+                            .ghost()
+                            .label("Reset")
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.reset_form(window, cx);
+                                window.push_notification("Form reset", cx);
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        Button::new("create customer")
+                            .primary()
+                            .disabled(!self.was_edited)
+                            .label("Save customer")
+                            .on_click(cx.listener(move |this, _, _window, cx| {
+                                this.save_customer(cx);
+                                cx.notify();
+                            })),
+                    ),
             )
     }
 }
@@ -304,10 +287,15 @@ impl CreateCustomerView {
             this.update_in(cx, |this, window, cx| {
                 match result {
                     Ok(new_customer) => {
+                        window.push_notification(
+                            format!("Customer {} created", new_customer.name),
+                            cx,
+                        );
                         cx.emit(CreateCustomerEvent::Created(new_customer));
                         this.reset_form(window, cx);
                     }
                     Err(e) => {
+                        window.push_notification(format!("Error: {e}"), cx);
                         eprintln!("{}", e.to_string());
                     }
                 };

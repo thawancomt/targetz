@@ -1,5 +1,5 @@
 use shared::project::Project;
 
-pub enum CreateProjectEvents {
+pub enum CreateProjectEvent {
     CreatedProject(Project),
 }

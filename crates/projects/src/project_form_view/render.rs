@@ -12,6 +12,7 @@ use gpui_kit::{
     },
     div, px,
 };
+use shared::form_utils::{app_date_field, app_field};
 
 use crate::project_form_view::state::CreateProjectView;
 
@@ -27,14 +28,6 @@ impl Render for CreateProjectView {
     ) -> impl gpui_kit::prelude::IntoElement {
         let theme = cx.theme();
         let project_name = text(&self.name, cx);
-
-        let field = |label: &'static str, input: &Entity<InputState>| {
-            Field::new().child(Input::new(input)).label(label)
-        };
-
-        let date_field = |label: &'static str, input: &Entity<DatePickerState>| {
-            Field::new().child(DatePicker::new(input)).label(label)
-        };
 
         let wide = window.viewport_size().width >= px(768. + 300.);
 
@@ -56,18 +49,18 @@ impl Render for CreateProjectView {
                     .grid()
                     .grid_cols(if wide { 2 } else { 1 })
                     .gap_2()
-                    .child(field("Name", &self.name).rounded(px(0.)))
-                    .child(field("Project Codename", &self.codename))
-                    .child(field("Description", &self.description))
-                    .child(field("Site url", &self.site_url))
-                    .child(field("Version", &self.version))
-                    .child(field("Budget", &self.budget))
+                    .child(app_field("Name", &self.name).rounded(px(0.)))
+                    .child(app_field("Project Codename", &self.codename))
+                    .child(app_field("Description", &self.description))
+                    .child(app_field("Site url", &self.site_url))
+                    .child(app_field("Version", &self.version))
+                    .child(app_field("Budget", &self.budget))
                     .child(
                         div()
                             .flex()
                             .gap_2()
-                            .child(date_field("Project due", &self.target_deadline))
-                            .child(date_field("Est. Start date", &self.start_date)),
+                            .child(app_date_field("Project due", &self.target_deadline))
+                            .child(app_date_field("Est. Start date", &self.start_date)),
                     )
                     .child(
                         Field::new()

@@ -56,6 +56,12 @@ impl TabState {
         self.active = Active::Customer(customer.id);
     }
 
+    pub fn update(&mut self, customer: Customer) {
+        if let Some(pos) = self.tabs.iter().position(|c| c.id == customer.id) {
+            self.tabs[pos] = customer;
+        }
+    }
+
     fn select(&mut self, target: Active) {
         match target {
             Active::AllUsers => self.active = Active::AllUsers,
@@ -197,6 +203,28 @@ impl TabCustomerView {
 
                     cx.notify();
                 }
+            },
+        )
+        .detach();
+
+        cx.subscribe(
+            &customer_detail_view,
+            move |tab_view, _detail_view, event: &AppEvent, cx| match event {
+                AppEvent::UpdatedCustomer(customer) => {
+                    tab_view.state.update(customer.clone());
+                    tab_view.customer_list_view.update(cx, |list, cx| {
+                        list.hydrate_customers(cx);
+                    });
+                    cx.notify();
+                }
+                AppEvent::DeletedCustomer(customer_id) => {
+                    tab_view.state.close(*customer_id);
+                    tab_view.customer_list_view.update(cx, |list, cx| {
+                        list.hydrate_customers(cx);
+                    });
+                    cx.notify();
+                }
+                _ => {}
             },
         )
         .detach();

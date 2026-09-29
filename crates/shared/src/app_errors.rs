@@ -10,4 +10,7 @@ pub enum AppRepositoryError {
 
     #[error("Failed to fetch data entity:  {0}")]
     FailedToFetch(String),
+
+    #[error("Failed to update entity:  {0}")]
+    FailedToUpdate(String),
 }

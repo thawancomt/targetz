@@ -19,6 +19,7 @@ pub enum SidebarEvent {
 
 pub struct SidebarView {
     pub active_tab: AppTab,
+    pub expanded: bool,
 }
 
 impl EventEmitter<SidebarEvent> for SidebarView {}
@@ -31,7 +32,7 @@ impl Render for SidebarView {
     ) -> impl gpui_kit::prelude::IntoElement {
         h_flex()
             .h_full()
-            .w(px(300.))
+            .when_else(self.expanded, |f| f.w(px(300.)), |f| f.w(px(50.)))
             .bg(cx.theme().border)
             .p_2()
             .flex_col()
@@ -41,18 +42,25 @@ impl Render for SidebarView {
                     .flex_1()
                     .w_full()
                     .gap_1()
-                    .child(self.sidebar_item(AppTab::Home, cx))
-                    .child(self.sidebar_item(AppTab::Targetz, cx))
-                    .child(self.sidebar_item(AppTab::CreateCustomer, cx))
-                    .child(self.sidebar_item(AppTab::Settings, cx))
-                    .child(self.sidebar_item(AppTab::Projects, cx)),
+                    .child(
+                        Button::new("expand-control")
+                            .w_full()
+                            .on_click(cx.listener(|this, _, _window, cx| {
+                                this.toggle_expand(cx);
+                            }))
+                            .primary()
+                            .when_else(
+                                self.expanded,
+                                |f| f.child(IconName::ArrowLeft),
+                                |f| f.child(IconName::ArrowRight),
+                            ),
+                    )
+                    .child(self.sidebar_item(AppTab::Home, IconName::LayoutDashboard, cx))
+                    .child(self.sidebar_item(AppTab::Targetz, IconName::User, cx))
+                    .child(self.sidebar_item(AppTab::Settings, IconName::Settings, cx))
+                    .child(self.sidebar_item(AppTab::Projects, IconName::Folder, cx)),
             )
-            .child(
-                div()
-                    .pt_2()
-                    .w_full()
-                    .child(self.theme_toggle_item(cx)),
-            )
+            .child(div().pt_2().w_full().child(self.theme_toggle_item(cx)))
     }
 }
 
@@ -64,7 +72,13 @@ impl SidebarView {
     pub fn new(_window: &mut Window, _cx: &mut Context<Self>) -> Self {
         Self {
             active_tab: AppTab::Home,
+            expanded: false,
         }
+    }
+
+    pub fn toggle_expand(&mut self, cx: &mut Context<Self>) {
+        self.expanded = !self.expanded;
+        cx.notify();
     }
 
     pub fn toggle_tab(&mut self, cx: &mut Context<Self>, tab: AppTab) {
@@ -97,40 +111,67 @@ impl SidebarView {
         Button::new("theme-mode-toggle")
             .w_full()
             .secondary()
-            .child(
-                div()
-                    .flex_1()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .child(
+            .when_else(
+                self.expanded,
+                |b| {
+                    b.child(
                         div()
+                            .flex_1()
                             .flex()
                             .items_center()
-                            .gap_2()
-                            .child(Icon::new(icon))
-                            .child(label),
+                            .justify_between()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(Icon::new(icon.clone()))
+                                    .child(label),
+                            )
+                            .child(Switch::new("theme-switch").checked(is_dark)),
                     )
-                    .child(Switch::new("theme-switch").checked(is_dark)),
+                },
+                |b| b.child(Icon::new(icon.clone())).tooltip(label),
             )
             .on_click(cx.listener(|this, _event, window, cx| {
                 this.toggle_theme(window, cx);
             }))
     }
 
-    fn sidebar_item(&mut self, tab: AppTab, cx: &mut Context<Self>) -> impl IntoElement {
+    fn sidebar_item(
+        &mut self,
+        tab: AppTab,
+        icon: IconName,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let is_active = self.active_tab == tab;
+
         Button::new(format!("{}", tab.as_str()))
-            .child(
-                div()
-                    .flex_1()
-                    .flex()
-                    .justify_between()
-                    .child(format!("{}", tab.as_str()))
-                    .child(IconName::ArrowRight),
-            )
             .w_full()
             .secondary()
-            .when(self.active_tab == tab, |e| e.primary())
+            .when(is_active, |e| e.primary())
+            .when_else(
+                self.expanded,
+                |b| {
+                    b.child(
+                        div()
+                            .flex_1()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(Icon::new(icon.clone()))
+                                    .child(format!("{}", tab.as_str())),
+                            )
+                            .child(IconName::ArrowRight),
+                    )
+                },
+                |b| b.child(Icon::new(icon.clone())).tooltip(tab.as_str()),
+            )
             .on_click(cx.listener(move |this, _event, _window, cx| {
                 this.toggle_tab(cx, tab.clone());
             }))

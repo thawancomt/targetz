@@ -13,7 +13,9 @@ use gpui_kit::{
 };
 use shared::project::{Project, ProjectStatus};
 
-use crate::project_detail_view::state::ProjectDetailView;
+use crate::project_detail_view::{
+    components::project_header::project_header, state::ProjectDetailView,
+};
 
 impl Render for ProjectDetailView {
     fn render(
@@ -40,6 +42,7 @@ impl Render for ProjectDetailView {
             ..
         } = project.clone();
 
+        let header = project_header(project.clone(), cx);
         let theme = cx.theme();
 
         let button = |project_status: ProjectStatus| -> Button {
@@ -52,50 +55,41 @@ impl Render for ProjectDetailView {
                 }))
         };
 
+        let show_save = self.relations_view.read(cx).initial_stakeholders
+            != self.relations_view.read(cx).stakeholders;
+
         div()
             .size_full()
             .h_full()
             .overflow_y_scrollbar()
+            .child(header)
             .child(
                 div()
-                    .flex()
+                    .m_2()
                     .p_2()
-                    .child(div().bg(theme.primary).w_48().h_48())
+                    .border_1()
+                    .border_color(theme.border)
                     .child(
-                        div().p_2().flex().flex_1().bg(theme.secondary).child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .flex_1()
-                                .justify_between()
-                                .child(
-                                    div()
-                                        .child(
-                                            div().child(name).text_2xl().text_color(theme.primary),
-                                        )
-                                        .child(format!(
-                                            "{} • {}",
-                                            current_version,
-                                            codename.unwrap_or_default()
-                                        )),
-                                )
-                                .child(
-                                    div()
-                                        .child(description.unwrap_or("No description".to_string())),
-                                )
-                                .child(
-                                    div().child(format!("Status : {}", status.as_str())).child(
-                                        div()
-                                            .flex()
-                                            .gap_2()
-                                            .child(button(ProjectStatus::Finished))
-                                            .child(button(ProjectStatus::Propousing))
-                                            .child(button(ProjectStatus::Prospecting))
-                                            .child(button(ProjectStatus::Refactoring))
-                                            .child(button(ProjectStatus::Started)),
-                                    ),
-                                ),
-                        ),
+                        div()
+                            .flex()
+                            .justify_between()
+                            .child(format!("Status [{}]", status.as_str()))
+                            .child(Button::new("edit-project").label("Edit").on_click(
+                                cx.listener(|this, _, window, cx| {
+                                    this.open_edit_dialog(window, cx);
+                                    cx.notify();
+                                }),
+                            )),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .gap_2()
+                            .child(button(ProjectStatus::Finished))
+                            .child(button(ProjectStatus::Propousing))
+                            .child(button(ProjectStatus::Prospecting))
+                            .child(button(ProjectStatus::Refactoring))
+                            .child(button(ProjectStatus::Started)),
                     ),
             )
             .child(
@@ -134,16 +128,20 @@ impl Render for ProjectDetailView {
                         )
                     }),
             )
-            .child(
-                div()
-                    .p_2()
-                    .child(div().child(format!(
-                        "Stakeholders [{}]",
-                        self.stakeholders.clone().unwrap_or_default().len()
-                    )))
-                    .child(div().p_2().child(self.relations_view.clone())),
-            )
-            .child(div().child(Button::new("save-button").primary().label("Save changes")))
+            .child(div().p_2().child(div().child(self.relations_view.clone())))
+            .when(show_save, |d| {
+                d.child(
+                    div().p_2().child(
+                        Button::new("save-button")
+                            .primary()
+                            .label("Save changes")
+                            .on_click(cx.listener(|this, _click, window, cx| {
+                                this.save_relations(cx);
+                            })),
+                    ),
+                )
+                .p_2()
+            })
             .into_any_element()
     }
 }

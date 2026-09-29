@@ -1,11 +1,15 @@
-use std::fmt::format;
-
 use gpui_kit::{
-    App, AppContext, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
+    App, AppContext, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled,
+    Window,
+    base::IndexPath,
     component::{
         ActiveTheme,
         button::{Button, ButtonVariants},
-        select::{Select, SelectState},
+        select::{
+            Select,
+            SelectEvent::{self, Confirm},
+            SelectItem, SelectState,
+        },
     },
     div,
     prelude::FluentBuilder,
@@ -26,20 +30,49 @@ impl StakeholderItemView {
             StakeholderRole::Partner.as_str().to_string(),
         ];
 
-        let select_state =
-            cx.new(|cx| SelectState::<Vec<String>>::new(options.clone(), None, window, cx));
+        let initial_index = options
+            .iter()
+            .position(|opt| opt == stakeholder.role.as_str())
+            .map(|idx| IndexPath::new(idx));
 
-        cx.new(|_cx| Self {
-            stakeholder,
-            select_state,
-            options,
+        let select_state =
+            cx.new(|cx| SelectState::new(options.clone(), initial_index, window, cx));
+
+        cx.new(|cx| {
+            cx.subscribe(&select_state, |this: &mut Self, _emitter, event, cx| {
+                match event {
+                    SelectEvent::Confirm(Some(role_str)) => {
+                        this.stakeholder.role = StakeholderRole::from(role_str.clone());
+                        cx.emit(StakeholderItemEvent::UpdateStakeholder(
+                            this.stakeholder.clone(),
+                        ));
+                        cx.notify(); // Redesenha a view com o novo valor
+                    }
+                    SelectEvent::Confirm(None) => {
+                        // Se o select foi limpo (caso cleanable seja true)
+                    }
+                }
+            })
+            .detach();
+
+            Self {
+                stakeholder,
+                select_state,
+                options,
+            }
         })
+    }
+
+    pub fn update_stakeholder_role(&mut self, role: StakeholderRole) {
+        self.stakeholder.role = role;
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum StakeholderItemEvent {
     AddedStakeholder(Stakeholder),
     RemoveStakeholder(Stakeholder),
+    UpdateStakeholder(Stakeholder),
 }
 
 impl EventEmitter<StakeholderItemEvent> for StakeholderItemView {}
@@ -54,6 +87,7 @@ impl Render for StakeholderItemView {
 
         let select_role = self.select_state.read(cx).selected_value();
         let theme = cx.theme();
+
         div()
             .flex()
             .justify_between()

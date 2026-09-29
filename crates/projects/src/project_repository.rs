@@ -3,7 +3,7 @@ use shared::{
     customer::{Customer, Persisted, Stakeholder},
     project::{Project, ProjectDraft, ProjectHistoryRow, ProjectRow, ProjectStatus},
 };
-use sqlx::{Pool, Sqlite};
+use sqlx::{Pool, QueryBuilder, Sqlite};
 
 #[derive(Debug, Clone)]
 pub struct ProjectRepository {
@@ -62,12 +62,38 @@ impl ProjectRepository {
 
         Ok(())
     }
-    pub fn link_customer(
+    pub async fn link_stakeholders(
         &self,
-        _customer: Customer,
-        _project_id: i64,
+        customers: Vec<Stakeholder>,
+        project_id: i64,
     ) -> Result<(), AppRepositoryError> {
-        todo!()
+        let mut query: QueryBuilder<Sqlite> = sqlx::QueryBuilder::new(
+            r#"
+                INSERT INTO project_customer (project_id, customer_id, role)
+            "#,
+        );
+
+        query.push_values(customers, |mut b, stakeholder| {
+            println!("{}", stakeholder.role.as_str());
+            b.push_bind(project_id)
+                .push_bind(stakeholder.id)
+                .push_bind(stakeholder.role.as_str());
+        });
+
+        query.push(
+            " ON CONFLICT (project_id, customer_id) DO UPDATE SET \
+                 role = excluded.role",
+        );
+
+        let result = query
+            .build()
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppRepositoryError::FailedToCreatePivot(e.to_string()))?;
+
+        println!("{}", result.rows_affected());
+
+        Ok(())
     }
     pub fn unlink_customer(
         &self,
@@ -181,6 +207,44 @@ impl ProjectRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| AppRepositoryError::FailedToFetch(e.to_string()))?;
+
+        Ok(result)
+    }
+
+    pub async fn update_project(
+        &self,
+        project_id: i64,
+        project_draft: ProjectDraft,
+    ) -> Result<Project<Persisted>, AppRepositoryError> {
+        let result = sqlx::query_as!(
+            Project::<Persisted>,
+            r#"
+                UPDATE projects
+                SET
+                    name = COALESCE(?, name),
+                    description = COALESCE(?, description),
+                    codename = COALESCE(?, codename),
+                    current_version = COALESCE(?, current_version),
+                    budget = COALESCE(?, budget),
+                    status = COALESCE(?, status),
+                    site_url = COALESCE(?, site_url),
+                    start_date = COALESCE(?, start_date),
+                    target_deadline = COALESCE(?, target_deadline)
+                RETURNING *
+            "#,
+            project_draft.name,
+            project_draft.description,
+            project_draft.codename,
+            project_draft.current_version,
+            project_draft.budget,
+            project_draft.status.as_str(),
+            project_draft.site_url,
+            project_draft.start_date,
+            project_draft.target_deadline,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| AppRepositoryError::FailedToUpdate(e.to_string()))?;
 
         Ok(result)
     }

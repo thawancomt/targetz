@@ -5308,6 +5308,7 @@ dependencies = [
  "gpui-kit",
  "shared",
  "sqlx",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

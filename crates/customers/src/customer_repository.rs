@@ -149,4 +149,54 @@ impl CustomerRepository {
 
         Ok(patched_customer)
     }
+
+    pub async fn update_customer(
+        &self,
+        customer_id: i64,
+        draft: CustomerUpdateDraft,
+    ) -> Result<Customer<Persisted>, CustomerRepositoryError> {
+        let updated = sqlx::query_as!(
+            Customer::<Persisted>,
+            r#"
+                UPDATE customers
+                SET
+                    name = COALESCE(?, name),
+                    email = COALESCE(?, email),
+                    phone_number = COALESCE(?, phone_number),
+                    address = ?,
+                    instagram_url = ?,
+                    site_url = ?,
+                    is_client = COALESCE(?, is_client),
+                    contacted = COALESCE(?, contacted)
+                WHERE id = ?
+                RETURNING *
+            "#,
+            draft.name,
+            draft.email,
+            draft.phone_number,
+            draft.address,
+            draft.instagram_url,
+            draft.site_url,
+            draft.is_client,
+            draft.contacted,
+            customer_id
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CustomerRepositoryError::PatchError(e.to_string()))?;
+
+        Ok(updated)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct CustomerUpdateDraft {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub phone_number: Option<String>,
+    pub address: Option<String>,
+    pub instagram_url: Option<String>,
+    pub site_url: Option<String>,
+    pub is_client: Option<bool>,
+    pub contacted: Option<bool>,
 }

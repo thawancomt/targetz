@@ -1,3 +1,4 @@
+pub mod edit_form_view;
 pub mod project_detail_view;
 pub mod project_form_view;
 pub mod project_repository;

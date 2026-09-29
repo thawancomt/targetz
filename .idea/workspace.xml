@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="4194ae0b-fc53-494a-9d6d-d9932b301f05" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/app/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/app/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/app/src/app.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/app/src/app.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/app/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/app/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/customers/src/create_customer_view.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/customers/src/create_customer_view.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/customers/src/customer_detail_view.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/customers/src/customer_detail_view.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/customers/src/customer_repository.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/customers/src/customer_repository.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/customers/src/customers_list_view.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/customers/src/customers_list_view.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/customers/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/customers/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/customers/src/tab_customers_view.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/customers/src/tab_customers_view.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_detail_view/components/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_detail_view/components/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_detail_view/components/stakeholder_item.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_detail_view/components/stakeholder_item.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_detail_view/project_relations/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_detail_view/project_relations/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_detail_view/project_relations/render.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_detail_view/project_relations/render.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_detail_view/project_relations/state.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_detail_view/project_relations/state.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_detail_view/render.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_detail_view/render.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_detail_view/state.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_detail_view/state.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_form_view/events.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_form_view/events.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_form_view/render.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_form_view/render.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_form_view/state.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_form_view/state.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/project_repository.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/project_repository.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/projects_list_view/render.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/projects_list_view/render.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/projects/src/projects_list_view/state.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/projects/src/projects_list_view/state.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/settings/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/settings/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/settings/src/settings_view.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/settings/src/settings_view.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/shared/src/app_errors.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/shared/src/app_errors.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/shared/src/events.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/shared/src/events.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/shared/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/shared/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/sidebar/src/sidebar_view.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/sidebar/src/sidebar_view.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/migrations/20260920021657_PROJECTS_CUSTOMER_PIVOT.sql" beforeDir="false" afterPath="$PROJECT_DIR$/migrations/20260920021657_PROJECTS_CUSTOMER_PIVOT.sql" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="Bg5bKQ96" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 0
+}]]></component>
+  <component name="ProjectId" id="3Jp6dH5rGQEHMbJEkjUv4YaC7pl" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "master",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "/home/thawancomt/Documents/projects/flau-gen/src-tauri/todos.db",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.first.attach.projects": "true",
+    "to.speed.mode.migration.done": "true"
+  }
+}]]></component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="4194ae0b-fc53-494a-9d6d-d9932b301f05" name="Changes" comment="" />
+      <created>1790345748714</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1790345748714</updated>
+    </task>
+    <servers />
+  </component>
+</project>

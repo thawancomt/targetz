@@ -8,3 +8,4 @@ shared = {path = "../shared"}
 customers = {path = "../customers"}
 sqlx.workspace = true
 gpui-kit.workspace = true
+thiserror.workspace = true

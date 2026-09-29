@@ -3,9 +3,12 @@ use gpui_kit::{
     ParentElement, Render, Styled, Window,
     base::v_flex,
     component::{
-        ActiveTheme, Icon, IconName, Theme, button::Button, scroll::ScrollableElement, tag::Tag,
+        ActiveTheme, Icon, IconName, Theme, WindowExt,
+        button::{Button, ButtonVariants},
+        scroll::ScrollableElement,
+        tag::Tag,
     },
-    div,
+    div, px,
     prelude::FluentBuilder,
 };
 use shared::{
@@ -17,6 +20,7 @@ use shared::{
 
 use crate::{
     customer_repository::CustomerRepository,
+    edit_customer_view::{events::CustomerUpdateEvent, state::CustomerUpdateView},
     interactions::{
         create_interaction_view::{CreateInteractionView, CreateInteractionViewEvent},
         interaction_repository::InteractionRepository,
@@ -29,6 +33,7 @@ pub struct CustomerDetailView {
     repository: CustomerRepository,
     interaction_repository: InteractionRepository,
     create_interaction_view: Entity<CreateInteractionView>,
+    pub edit_view: Entity<CustomerUpdateView>,
 }
 
 impl EventEmitter<AppEvent> for CustomerDetailView {}
@@ -73,11 +78,23 @@ impl CustomerDetailView {
         })
         .detach();
 
+        let edit_view = CustomerUpdateView::view(window, cx, customer.clone());
+
+        cx.subscribe(&edit_view, |this, _emitter, event, cx| match event {
+            CustomerUpdateEvent::UpdatedCustomer(updated) => {
+                this.set_customer(updated.clone(), cx);
+                cx.emit(AppEvent::UpdatedCustomer(updated.clone()));
+                cx.notify();
+            }
+        })
+        .detach();
+
         Self {
             customer,
             repository,
             interaction_repository,
             create_interaction_view,
+            edit_view,
             interactions: None,
         }
     }
@@ -135,10 +152,29 @@ impl CustomerDetailView {
             .update(cx, |interaction_view, interaction_view_context| {
                 interaction_view.customer = Some(customer.clone());
                 self.interaction_repository.customer = Some(customer.clone());
-                interaction_view.interaction_repository.customer = Some(customer);
+                interaction_view.interaction_repository.customer = Some(customer.clone());
                 interaction_view_context.notify();
             });
+        self.edit_view.update(cx, |edit, _cx| {
+            edit.customer = Some(customer);
+        });
         cx.notify();
+    }
+
+    pub fn open_edit_dialog(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let view = self.edit_view.clone();
+        if let Some(c) = self.customer.clone() {
+            view.update(cx, |edit, cx| {
+                edit.set_customer(c, window, cx);
+            });
+        }
+
+        window.open_dialog(cx, move |dialog, _window, _cx| {
+            dialog
+                .title("Edit Customer")
+                .child(view.clone())
+                .w(px(560.))
+        });
     }
 
     fn info_row(
@@ -282,6 +318,15 @@ impl Render for CustomerDetailView {
                                                 "Pending Contact"
                                             })),
                                     ),
+                            )
+                            .child(
+                                Button::new("edit-customer")
+                                    .secondary()
+                                    .label("Edit")
+                                    .on_click(cx.listener(|this, _e, window, cx| {
+                                        this.open_edit_dialog(window, cx);
+                                        cx.notify();
+                                    })),
                             ),
                     )
                     .child(

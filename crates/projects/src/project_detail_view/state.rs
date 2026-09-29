@@ -1,18 +1,19 @@
 use gpui_kit::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Styled, Window,
     component::{
-        ActiveTheme, IndexPath,
+        ActiveTheme, IndexPath, WindowExt,
         list::{ListDelegate, ListItem, ListState},
     },
     div,
 };
 use shared::{
-    customer::{Customer, Stakeholder},
+    customer::Stakeholder,
     db::DbPool,
     project::{Project, ProjectHistoryRow, ProjectStatus},
 };
 
 use crate::{
+    edit_form_view::state::ProjectUpdateView,
     project_detail_view::project_relations::state::ProjectRelationView,
     project_repository::ProjectRepository,
 };
@@ -187,6 +188,7 @@ pub struct ProjectDetailView {
     pub relations_view: Entity<ProjectRelationView>,
     pub show_history: bool,
     pub stakeholders: Option<Vec<Stakeholder>>,
+    pub edit_view: Entity<ProjectUpdateView>,
 }
 
 impl ProjectDetailView {
@@ -194,14 +196,37 @@ impl ProjectDetailView {
         let history_list = cx.new(|cx| ListState::new(ProjectHistoryDelegate::new(), window, cx));
         let relations_view = ProjectRelationView::view(window, cx);
 
-        cx.new(|_cx| Self {
+        let edit_view = ProjectUpdateView::view(window, cx);
+
+        let view = cx.new(|_cx| Self {
             project,
             history: None,
             history_list,
             show_history: false,
             stakeholders: Some(Vec::new()),
             relations_view,
-        })
+            edit_view,
+        });
+
+        view.update(cx, |this, cx| {
+            cx.observe(&this.relations_view, |_this, _re_view, cx| {
+                cx.notify();
+            })
+            .detach();
+
+            cx.subscribe_in(
+                &this.edit_view,
+                window,
+                |this, _emitter, event, window, cx| match event {
+                    crate::edit_form_view::events::ProjectUpdateEvent::UpdatedProject(p) => {
+                        this.set_project(p.clone(), window, cx);
+                    }
+                },
+            )
+            .detach();
+        });
+
+        view
     }
 
     pub fn toggle_history(&mut self, cx: &mut Context<Self>) {
@@ -215,7 +240,12 @@ impl ProjectDetailView {
         self.hydrate_stakeholders(project.id, cx);
 
         self.relations_view.update(cx, |t, cx| {
-            t.set_project(project, window, cx);
+            t.set_project(project.clone(), window, cx);
+            cx.notify();
+        });
+
+        self.edit_view.update(cx, |edit_view, cx| {
+            edit_view.set_project(project, window, cx);
             cx.notify();
         });
 
@@ -337,5 +367,56 @@ impl ProjectDetailView {
         .detach();
 
         cx.notify();
+    }
+
+    pub fn save_relations(&mut self, cx: &mut Context<Self>) {
+        let pool = cx.global::<DbPool>().0.clone();
+
+        let repository = ProjectRepository::new(pool);
+
+        let Some(stakeholders) = self.relations_view.read(cx).stakeholders.clone() else {
+            eprintln!("None found");
+            return;
+        };
+
+        let Some(project) = self.project.clone() else {
+            eprintln!("None found");
+            return;
+        };
+
+        let relation_view_handle = self.relations_view.clone();
+
+        cx.spawn(async move |_this, cx| {
+            let result = cx
+                .background_spawn(async move {
+                    repository.link_stakeholders(stakeholders, project.id).await
+                })
+                .await;
+            match result {
+                Ok(_) => {
+                    let _ = relation_view_handle.update(cx, |re_view, cx| {
+                        re_view.initial_stakeholders = re_view.stakeholders.clone();
+                        cx.notify();
+                    });
+                }
+                Err(e) => {
+                    let _ = relation_view_handle.update(cx, |re_view, cx| {
+                        re_view.reset_relations(cx);
+                        cx.notify();
+                    });
+
+                    eprintln!("Error while linking stakeholders with the current project, {e}")
+                }
+            };
+        })
+        .detach();
+    }
+
+    pub fn open_edit_dialog(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let view = self.edit_view.clone();
+
+        window.open_dialog(cx, move |dialog, _, _| {
+            dialog.title("Edit project").child(view.clone())
+        });
     }
 }

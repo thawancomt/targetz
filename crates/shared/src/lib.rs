@@ -5,6 +5,7 @@ pub mod customer;
 pub mod customer_interaction;
 pub mod db;
 pub mod events;
+pub mod form_utils;
 pub mod project;
 pub mod theme;
 

@@ -30,26 +30,6 @@ impl ProjectRelationView {
         cx.new(|cx| Self::new(window, cx))
     }
 
-    pub fn add_stakeholder(
-        &mut self,
-        customer: Customer,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let new_stakeholder = Stakeholder::new(customer, None);
-
-        if let Some(stakeholders) = self.stakeholders.as_mut() {
-            if stakeholders.contains(&new_stakeholder) {
-                return;
-            }
-            stakeholders.push(new_stakeholder);
-        }
-
-        self.sync_stakeholders_views(self.stakeholders.clone().unwrap_or_default(), window, cx);
-
-        cx.notify();
-    }
-
     pub fn set_project(&mut self, project: Project, window: &mut Window, cx: &mut Context<Self>) {
         self.project = Some(project.clone());
 
@@ -70,7 +50,10 @@ impl ProjectRelationView {
 
             match result {
                 Ok(customers) => {
-                    let _ = view.update(cx, |this, _cx| this.customers = Some(customers));
+                    let _ = view.update(cx, |this, cx| {
+                        this.customers = Some(customers);
+                        cx.notify();
+                    });
                 }
                 Err(e) => {
                     eprintln!("{e}")
@@ -93,9 +76,15 @@ impl ProjectRelationView {
             match result {
                 Ok(stakeholders) => {
                     let _ = view.update_in(cx, |this, window, cx| {
+                        let views = stakeholders
+                            .iter()
+                            .map(|sk| this.create_stakeholder_view(sk.clone(), window, cx))
+                            .collect();
+
                         this.stakeholders = Some(stakeholders.clone());
-                        this.initial_stakeholders = Some(stakeholders.clone());
-                        this.sync_stakeholders_views(stakeholders, window, cx);
+                        this.initial_stakeholders = Some(stakeholders);
+                        this.stakeholders_views = Some(views);
+                        cx.notify();
                     });
                 }
                 Err(e) => {
@@ -106,30 +95,35 @@ impl ProjectRelationView {
         .detach();
     }
 
-    pub fn sync_stakeholders_views(
-        &mut self,
-        stakeholders: Vec<Stakeholder>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let mut stakeholders_views: Vec<Entity<StakeholderItemView>> = Vec::new();
+    pub fn reset_relations(&mut self, cx: &mut Context<Self>) {
+        let Some(stakeholders) = self.stakeholders.clone() else {
+            return;
+        };
 
-        for stakeholder in stakeholders {
-            let view = StakeholderItemView::new(stakeholder, window, cx);
+        let Some(initial_stakeholders) = self.initial_stakeholders.clone() else {
+            return;
+        };
 
-            cx.subscribe(&view, move |this, _e, event, cx| match event {
-                StakeholderItemEvent::RemoveStakeholder(sk) => {
-                    this.remove_stakeholder(sk.clone(), cx);
-                    cx.notify();
-                }
-                _ => {}
-            })
-            .detach();
+        let Some(mut views) = self.stakeholders_views.take() else {
+            return;
+        };
 
-            stakeholders_views.push(view);
-        }
+        self.stakeholders = Some(initial_stakeholders);
 
-        self.stakeholders_views = Some(stakeholders_views);
+        let stakeholder_ids: Vec<i64> = stakeholders.clone().iter().map(|f| f.id).collect();
+
+        views.retain(|view| {
+            let view_data = view.read(cx);
+            let view_stakeholder = view_data.stakeholder.clone();
+
+            if stakeholder_ids.contains(&view_stakeholder.id) {
+                true
+            } else {
+                false
+            }
+        });
+
+        self.stakeholders_views = Some(views);
     }
 
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -152,7 +146,81 @@ impl ProjectRelationView {
         };
 
         if let Some(views) = self.stakeholders_views.as_mut() {
-            views.retain(|v| v.read(cx).stakeholder != stakeholder);
+            views.retain(|v| v.read(cx).stakeholder.id != stakeholder.id);
+        }
+
+        cx.notify();
+    }
+
+    pub fn update_stakeholder(&mut self, stakeholder: Stakeholder) {
+        if let Some(stakeholders) = self.stakeholders.as_mut() {
+            if let Some(sk) = stakeholders.iter_mut().find(|s| s.id == stakeholder.id) {
+                sk.role = stakeholder.role;
+            }
+        }
+    }
+
+    pub fn create_stakeholder_view(
+        &mut self,
+        stakeholder: Stakeholder,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<StakeholderItemView> {
+        let view = StakeholderItemView::new(stakeholder, window, cx);
+
+        cx.subscribe_in(
+            &view,
+            window,
+            move |this, _e, event, window, cx| match event {
+                StakeholderItemEvent::RemoveStakeholder(sk) => {
+                    this.remove_stakeholder(sk.clone(), cx);
+                    cx.notify();
+                }
+                StakeholderItemEvent::AddedStakeholder(sk) => {
+                    let customer = sk.clone().customer();
+                    this.add_stakeholder(customer, window, cx);
+                    cx.notify();
+                }
+                StakeholderItemEvent::UpdateStakeholder(updated_stakeholder) => {
+                    this.update_stakeholder(updated_stakeholder.to_owned());
+                    cx.notify();
+                }
+            },
+        )
+        .detach();
+
+        view
+    }
+
+    pub fn add_stakeholder(
+        &mut self,
+        customer: Customer,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let new_stakeholder = Stakeholder::new(customer, None);
+
+        let stakeholders = match self.stakeholders.as_mut() {
+            Some(s) => s,
+            None => {
+                self.stakeholders = Some(Vec::new());
+                self.stakeholders.as_mut().unwrap()
+            }
+        };
+
+        if stakeholders.iter().any(|s| s.id == new_stakeholder.id) {
+            return;
+        }
+
+        stakeholders.push(new_stakeholder.clone());
+
+        let view = self.create_stakeholder_view(new_stakeholder, window, cx);
+
+        match self.stakeholders_views.as_mut() {
+            Some(views) => {
+                views.push(view);
+            }
+            _ => self.stakeholders_views = Some(vec![view]),
         }
 
         cx.notify();

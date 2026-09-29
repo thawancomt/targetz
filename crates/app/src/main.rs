@@ -8,10 +8,11 @@ use sqlx::{
     Pool, Sqlite,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
-use std::{path::PathBuf, str::FromStr, time::Duration};
+use std::{str::FromStr, time::Duration};
 
 use crate::app::AppShell;
 pub mod app;
+pub mod home;
 
 #[derive(Debug, thiserror::Error)]
 enum AppError {
@@ -24,11 +25,23 @@ enum AppError {
 
 async fn get_db() -> Result<Pool<Sqlite>, AppError> {
     dotenv::dotenv().ok();
-    let url =
-        dotenv::var("DATABASE_URL").map_err(|e| AppError::GetDatabaseUrlEnv(e.to_string()))?;
+    let url = std::env::var("DATABASE_URL")
+        .or_else(|_| dotenv::var("DATABASE_URL"))
+        .unwrap_or_else(|_| {
+            if std::path::Path::new("todos.db").exists() {
+                "sqlite://todos.db".to_string()
+            } else if let Ok(home) = std::env::var("HOME") {
+                let dir = std::path::PathBuf::from(home).join(".local/share/targetz");
+                let _ = std::fs::create_dir_all(&dir);
+                format!("sqlite://{}", dir.join("todos.db").display())
+            } else {
+                "sqlite://todos.db".to_string()
+            }
+        });
 
     let options = SqliteConnectOptions::from_str(&url)
         .map_err(|e| AppError::StartDatabaseError(e.to_string()))?
+        .create_if_missing(true)
         .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
         .busy_timeout(Duration::from_secs(5));
 
@@ -37,6 +50,11 @@ async fn get_db() -> Result<Pool<Sqlite>, AppError> {
         // concorrentes junto do único writer que o WAL mode já suporta
         .max_connections(5)
         .connect_with(options)
+        .await
+        .map_err(|e| AppError::StartDatabaseError(e.to_string()))?;
+
+    sqlx::migrate!("../../migrations")
+        .run(&pool)
         .await
         .map_err(|e| AppError::StartDatabaseError(e.to_string()))?;
 
@@ -59,17 +77,14 @@ fn main() {
         gpui_kit::init(cx);
         cx.set_global(DbPool(pool.clone()));
 
+        settings::init_themes(cx);
+
         let dark_name = SharedString::from("Dark");
-
-        if let Err(err) = ThemeRegistry::watch_dir(PathBuf::from("./themes"), cx, move |cx| {
-            let registry = ThemeRegistry::global(cx);
-
-            if let Some(theme) = registry.themes().get(&dark_name).cloned() {
-                Theme::global_mut(cx).font_family = "Geist Mono".into();
-                Theme::global_mut(cx).apply_config(&theme);
-            }
-        }) {
-            eprintln!("Failed to watch themes directory: {}", err);
+        let registry = ThemeRegistry::global(cx);
+        if let Some(theme) = registry.themes().get(&dark_name).cloned() {
+            Theme::global_mut(cx).font_family = "Geist Mono".into();
+            Theme::global_mut(cx).apply_config(&theme);
+            Theme::sync_base(cx);
         }
 
         let bound = Bounds::centered(None, size(px(1280.), px(720.)), cx);

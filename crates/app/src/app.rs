@@ -1,16 +1,15 @@
+use crate::home::{HomeEvent, HomeView, QuickAction};
 use customers::{
-    create_customer_view::{CreateCustomerEvent, CreateCustomerView},
-    customer_repository::CustomerRepository,
-    customers_list_view::CustomerListView,
+    customer_repository::CustomerRepository, customers_list_view::CustomerListView,
     tab_customers_view::TabCustomerView,
 };
 use gpui_fps::fps_monitor;
 use gpui_kit::{
-    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
     base::StyledExt,
     component::{Root, TitleBar},
     div,
     prelude::FluentBuilder,
+    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
 };
 use projects::{
     project_form_view::CreateProjectView,
@@ -19,18 +18,18 @@ use projects::{
     tab_projects_view::TabProjectsView,
 };
 use settings::settings_view::SettingsView;
-use shared::{AppTab, db::DbPool, events::AppEvent};
+use shared::{db::DbPool, events::AppEvent, AppTab};
 use sidebar::sidebar_view::{SidebarEvent, SidebarView};
 
 pub struct AppShell {
     pub current_tab: AppTab,
     pub sidebar: Entity<SidebarView>,
     pub settings_view: Entity<SettingsView>,
-    pub create_customer_view: Entity<CreateCustomerView>,
     pub customer_tab_view: Entity<TabCustomerView>,
     pub create_project_view: Entity<CreateProjectView>,
     pub project_list_view: Entity<ProjectsListView>,
     pub project_tab_view: Entity<TabProjectsView>,
+    pub home_view: Entity<HomeView>,
 }
 
 impl AppShell {
@@ -46,7 +45,6 @@ impl AppShell {
         let settings_view = SettingsView::view(window, cx);
 
         // Customers
-        let create_customer_view = CreateCustomerView::view(window, cx);
         let customer_list_view = CustomerListView::view(window, cx);
         let tab_customers_view = TabCustomerView::view(window, cx, customer_list_view.clone());
         let create_project_view = CreateProjectView::view(window, cx);
@@ -78,47 +76,6 @@ impl AppShell {
         })
         .detach();
 
-        // Listen the creation of a new customer
-        // Move to the targetz page and set the active tab to the ne user
-        cx.subscribe(
-            &create_customer_view,
-            |app_shell, _create_view, event, cx| match event {
-                CreateCustomerEvent::Created(new_customer) => {
-                    app_shell.customer_tab_view.update(cx, |tab_view, cx| {
-                        tab_view
-                            .customer_list_view
-                            .update(cx, |customer_list_view, cx| {
-                                customer_list_view.hydrate_customers(cx)
-                            });
-                        // open the new customer in tab view -> tabs
-                        tab_view.state.open(new_customer.clone());
-                    });
-                    app_shell
-                        .sidebar
-                        .update(cx, |sidebar_view, sidebar_context| {
-                            sidebar_view.toggle_tab(sidebar_context, AppTab::Targetz);
-                            sidebar_context.notify();
-                        });
-
-                    app_shell
-                        .customer_tab_view
-                        .update(cx, |tab_view, tab_context| {
-                            tab_view.customer_detail_view.update(
-                                tab_context,
-                                |detail_view, context| {
-                                    detail_view.set_customer(new_customer.clone(), context);
-                                    detail_view.hydrate_interactions(context);
-                                    context.notify();
-                                },
-                            );
-                            tab_context.notify();
-                        });
-                }
-                _ => {}
-            },
-        )
-        .detach();
-
         // React to deletion of a customer
         cx.subscribe(
             &customer_list_view,
@@ -137,6 +94,93 @@ impl AppShell {
 
         let project_list_view = ProjectsListView::view(window, cx);
         let project_tab_view = TabProjectsView::view(window, cx, project_list_view.clone());
+        let home_view = HomeView::view(window, cx);
+
+        let customer_tab_view_for_home = tab_customers_view.clone();
+        let project_tab_view_for_home = project_tab_view.clone();
+        let sidebar_for_home = sidebar.clone();
+
+        cx.subscribe_in(
+            &home_view,
+            window,
+            move |this, _emitter, event: &HomeEvent, window, cx| match event {
+                HomeEvent::OpenCustomer(customer) => {
+                    this.current_tab = AppTab::Targetz;
+                    sidebar_for_home.update(cx, |sidebar, cx| {
+                        sidebar.active_tab = AppTab::Targetz;
+                        cx.notify();
+                    });
+                    customer_tab_view_for_home.update(cx, |tab, cx| {
+                        tab.state.open(customer.clone());
+                        tab.customer_detail_view.update(cx, |detail, cx| {
+                            detail.set_customer(customer.clone(), cx);
+                            detail.hydrate_interactions(cx);
+                            cx.notify();
+                        });
+                        cx.notify();
+                    });
+                    cx.notify();
+                }
+                HomeEvent::OpenProject(project) => {
+                    this.current_tab = AppTab::Projects;
+                    sidebar_for_home.update(cx, |sidebar, cx| {
+                        sidebar.active_tab = AppTab::Projects;
+                        cx.notify();
+                    });
+                    project_tab_view_for_home.update(cx, |tab, cx| {
+                        tab.state.open(project.clone());
+                        tab.project_detail_view.update(cx, |detail, cx| {
+                            detail.set_project(project.clone(), window, cx);
+                            cx.notify();
+                        });
+                        cx.notify();
+                    });
+                    cx.notify();
+                }
+                HomeEvent::TriggerAction(action) => match action {
+                    QuickAction::CreateCustomer => {
+                        this.current_tab = AppTab::Targetz;
+                        sidebar_for_home.update(cx, |sidebar, cx| {
+                            sidebar.active_tab = AppTab::Targetz;
+                            cx.notify();
+                        });
+                        customer_tab_view_for_home.update(cx, |tab, cx| {
+                            tab.customer_list_view.update(cx, |list, cx| {
+                                list.open_create_customer_dialog(window, cx);
+                            });
+                        });
+                        cx.notify();
+                    }
+                    QuickAction::CreateProject => {
+                        this.current_tab = AppTab::Projects;
+                        sidebar_for_home.update(cx, |sidebar, cx| {
+                            sidebar.active_tab = AppTab::Projects;
+                            cx.notify();
+                        });
+                        project_tab_view_for_home.update(cx, |tab, cx| {
+                            tab.projects_list_view.update(cx, |list, cx| {
+                                list.open_create_project_dilaog(window, cx);
+                            });
+                        });
+                        cx.notify();
+                    }
+                    QuickAction::ToggleTheme => {
+                        sidebar_for_home.update(cx, |sidebar, cx| {
+                            sidebar.toggle_theme(window, cx);
+                        });
+                    }
+                    QuickAction::OpenSettings => {
+                        this.current_tab = AppTab::Settings;
+                        sidebar_for_home.update(cx, |sidebar, cx| {
+                            sidebar.active_tab = AppTab::Settings;
+                            cx.notify();
+                        });
+                        cx.notify();
+                    }
+                },
+            },
+        )
+        .detach();
 
         Self::observe_tab_events(&sidebar, cx);
 
@@ -146,18 +190,29 @@ impl AppShell {
         Self {
             sidebar,
             settings_view,
-            create_customer_view,
             current_tab: initial_current_tab,
             customer_tab_view: tab_customers_view,
             create_project_view,
             project_list_view,
             project_tab_view,
+            home_view,
         }
     }
 
     pub fn observe_tab_events(tab_view: &Entity<SidebarView>, cx: &mut Context<Self>) {
         cx.subscribe(&tab_view, move |this, _entity, event, cx| {
             match event {
+                SidebarEvent::TabClick(AppTab::Home) => {
+                    this.home_view.update(cx, |home, cx| {
+                        home.hydrate_data(cx);
+                    });
+                }
+                SidebarEvent::TabClick(AppTab::Settings) => {
+                    this.settings_view.update(cx, |_settings, cx| {
+                        // Notify settings to re-sync active theme
+                        cx.notify();
+                    });
+                }
                 SidebarEvent::TabClick(AppTab::Projects) => {
                     let p_list_handle = this.project_list_view.clone();
                     let pool = cx.global::<DbPool>().0.clone();
@@ -220,11 +275,11 @@ impl Render for AppShell {
         cx: &mut Context<Self>,
     ) -> impl gpui_kit::prelude::IntoElement {
         let tab_to_show = match self.current_tab {
+            AppTab::Home => self.home_view.clone().into_any_element(),
             AppTab::Settings => self.settings_view.clone().into_any_element(),
-            AppTab::CreateCustomer => self.create_customer_view.clone().into_any_element(),
             AppTab::Targetz => self.customer_tab_view.clone().into_any_element(),
             AppTab::Projects => self.project_tab_view.clone().into_any_element(),
-            _ => self.settings_view.clone().into_any_element(),
+            _ => self.home_view.clone().into_any_element(),
         };
 
         let dialog_layer = Root::render_dialog_layer(window, cx);
@@ -234,12 +289,20 @@ impl Render for AppShell {
             div()
                 .flex()
                 .flex_1()
+                .min_h_0()
                 .child(self.sidebar.clone())
-                .child(div().h_flex().flex_1().min_w_0().child(tab_to_show))
+                .child(
+                    div()
+                        .h_flex()
+                        .flex_1()
+                        .min_w_0()
+                        .min_h_0()
+                        .h_full()
+                        .child(tab_to_show),
+                )
                 .children(dialog_layer)
                 .children(notification_layer)
-                .relative()
-                .when(true, |this| this.child(fps_monitor(window, cx))),
+                .relative(), /* .when(true, |this| this.child(fps_monitor(window, cx))), */
         )
     }
 }

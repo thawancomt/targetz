@@ -5,7 +5,7 @@ use gpui_kit::{
 use shared::project::Project;
 
 use crate::{
-    project_form_view::{CreateProjectView, events::CreateProjectEvents},
+    project_form_view::{CreateProjectView, events::CreateProjectEvent},
     projects_list_view::{
         components::{events::ProjectItemEvents, project_item::ProjectItem},
         events::ProjectListEvents,
@@ -47,7 +47,7 @@ impl ProjectsListView {
     pub fn observe_form_events(view: &Entity<CreateProjectView>, cx: &mut Context<Self>) {
         cx.subscribe(&view, |this, _, event, cx| {
             match event {
-                CreateProjectEvents::CreatedProject(project) => {
+                CreateProjectEvent::CreatedProject(project) => {
                     this.add_project(project.clone(), cx);
                     cx.notify();
                 }

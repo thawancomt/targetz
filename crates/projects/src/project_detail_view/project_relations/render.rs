@@ -1,8 +1,5 @@
 use gpui_kit::{
-    Context, IntoElement, ParentElement, Render, Styled,
-    base::v_flex,
-    component::ActiveTheme,
-    div,
+    Context, IntoElement, ParentElement, Render, Styled, base::v_flex, component::ActiveTheme, div,
     prelude::FluentBuilder,
 };
 use shared::customer::Customer;
@@ -44,7 +41,7 @@ impl Render for ProjectRelationView {
                     .gap_2()
                     .child(
                         div()
-                            .child(format!("Relations [{}]", stakeholders.len()))
+                            .child(format!("Stakeholders [{}]", stakeholders.len()))
                             .text_lg()
                             .text_color(theme.primary),
                     )
@@ -119,4 +116,3 @@ impl Render for ProjectRelationView {
             )
     }
 }
-
