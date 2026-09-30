@@ -99,6 +99,7 @@ pub fn rail_card(selected: bool, body: impl IntoElement, theme: &Theme) -> Div {
         .w_full()
         .overflow_hidden()
         .border_1()
+        .rounded(theme.radius)
         .border_color(if selected {
             theme.primary
         } else {
