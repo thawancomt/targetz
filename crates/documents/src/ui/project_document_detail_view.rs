@@ -6,6 +6,8 @@ use crate::{
     models::{DocumentWithCustomers, ProjectDocumentStats},
 };
 use customers::customer_repository::CustomerRepository;
+use gpui_kit::base::Disableable;
+use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, ParentElement, Render, Styled, Window,
     base::StyledExt,
@@ -34,6 +36,7 @@ pub struct ProjectDocumentDetailView {
     pub project_stats: Option<ProjectDocumentStats>,
     pub documents: Vec<DocumentWithCustomers>,
     data_dir: Option<PathBuf>,
+    is_under_loading: bool,
 }
 
 impl EventEmitter<events::DocumentDetailEvents> for ProjectDocumentDetailView {}
@@ -58,6 +61,7 @@ impl ProjectDocumentDetailView {
             data_dir: DocumentManager::default_data_dir()
                 .map_err(|e| eprintln!("{e}"))
                 .ok(),
+            is_under_loading: false,
         }
     }
 
@@ -285,10 +289,19 @@ impl Render for ProjectDocumentDetailView {
                             .gap_2()
                             .child(
                                 Button::new("get-customers-btn")
-                                    .label("Get customers")
-                                    .child(IconName::User)
+                                    .disabled(self.is_under_loading)
+                                    .when_else(
+                                        self.is_under_loading,
+                                        |this| this.label("Loading..."),
+                                        |this| this.label("Get customers").child(IconName::User),
+                                    )
                                     .on_click(cx.listener(|this, _, window, cx| {
+                                        this.is_under_loading = true;
+                                        cx.notify();
                                         this.get_customers(window, cx);
+
+                                        this.is_under_loading = false;
+                                        cx.notify()
                                     })),
                             )
                             .child(
@@ -314,7 +327,11 @@ impl Render for ProjectDocumentDetailView {
                                                     .collect();
 
                                                 let _ = this.update_in(cx, |this, window, cx| {
+                                                    this.is_under_loading = true;
+                                                    cx.notify();
                                                     this.upload_documents(paths, window, cx);
+                                                    this.is_under_loading = false;
+                                                    cx.notify();
                                                 });
                                             }
                                         })

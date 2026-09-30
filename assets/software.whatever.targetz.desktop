@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=Whatever Targetz
+Name=Targetz
 Comment=A customer target
 Exec=/usr/bin/whatever_targetz
-Icon=/usr/share/pixmaps/icon.png
 Terminal=false
 Type=Application
 Categories=Office;
+StartupWMClass=software.whatever.targetz

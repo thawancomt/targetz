@@ -91,6 +91,7 @@ async fn main() {
                         ..Default::default()
                     }),
                     window_bounds: Some(WindowBounds::Windowed(bound)),
+                    app_id: Some("software.whatever.targetz".to_string()),
                     ..Default::default()
                 },
                 |window, cx| {
