@@ -80,8 +80,7 @@ impl ProjectDocumentsSection {
             let documents = manager.get_project_documents(project_id).await;
             let mentions = manager.get_mentioned_customers(project_id).await;
             let _ = this.update(cx, |section, cx| {
-                if section.load_generation != generation || section.project_id != Some(project_id)
-                {
+                if section.load_generation != generation || section.project_id != Some(project_id) {
                     return;
                 }
                 if let Ok(documents) = documents {
@@ -247,12 +246,7 @@ impl ProjectDocumentsSection {
             let updated = match DocumentManager::new(pool) {
                 Ok(manager) => {
                     manager
-                        .set_customer_document_status(
-                            project_id,
-                            customer_id,
-                            document_id,
-                            status,
-                        )
+                        .set_customer_document_status(project_id, customer_id, document_id, status)
                         .await
                 }
                 Err(e) => Err(sqlx::Error::Protocol(e.to_string())),
@@ -303,7 +297,11 @@ async fn discover_customers(
 }
 
 impl Render for ProjectDocumentsSection {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl gpui_kit::IntoElement {
+    fn render(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl gpui_kit::IntoElement {
         let theme = cx.theme().clone();
         let documents_expanded = self.documents_expanded;
         let mentions_expanded = self.mentions_expanded;
@@ -315,10 +313,7 @@ impl Render for ProjectDocumentsSection {
         let documents_empty = self.documents.is_empty();
         let mentions_empty = self.mentions.is_empty();
         let empty_documents = empty_row("No documents yet.", cx);
-        let empty_mentions = empty_row(
-            "No customers detected. Upload a document, then scan.",
-            cx,
-        );
+        let empty_mentions = empty_row("No customers detected. Upload a document, then scan.", cx);
         let toggle_documents = cx.listener(|this, _, _, cx| this.toggle_documents(cx));
         let toggle_mentions = cx.listener(|this, _, _, cx| this.toggle_mentions(cx));
         let on_upload = cx.listener(|_this, _, window, cx| {
@@ -447,7 +442,9 @@ impl Render for ProjectDocumentsSection {
                                         .when_else(
                                             is_scanning,
                                             |this| this.label("Scanning..."),
-                                            |this| this.label("Scan documents").child(IconName::User),
+                                            |this| {
+                                                this.label("Scan documents").child(IconName::User)
+                                            },
                                         )
                                         .on_click(on_scan),
                                 ),
@@ -471,12 +468,7 @@ fn section_header(
         .w_full()
         .justify_between()
         .items_center()
-        .child(
-            div()
-                .text_lg()
-                .text_color(theme.primary)
-                .child(title),
-        )
+        .child(div().text_lg().text_color(theme.primary).child(title))
         .child(
             Button::new(id)
                 .secondary()
