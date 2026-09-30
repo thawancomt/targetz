@@ -67,15 +67,20 @@ impl TabDocumentsView {
         )
         .detach();
 
-        cx.subscribe(&detail_view, |tab_view, _, event, cx| match event {
-            DocumentDetailEvents::DocumentsUploaded {
-                project_id,
-                documents,
-            } => {
-                tab_view.list_view.update(cx, |list, list_cx| {
-                    list.update_project_documents(*project_id, documents, list_cx);
-                });
-            }
+        cx.subscribe(&detail_view, |tab_view, _, event, cx| {
+            let (project_id, documents) = match event {
+                DocumentDetailEvents::DocumentsUploaded {
+                    project_id,
+                    documents,
+                }
+                | DocumentDetailEvents::DocumentDeleted {
+                    project_id,
+                    documents,
+                } => (project_id, documents),
+            };
+            tab_view.list_view.update(cx, |list, list_cx| {
+                list.update_project_documents(*project_id, documents, list_cx);
+            });
         })
         .detach();
 

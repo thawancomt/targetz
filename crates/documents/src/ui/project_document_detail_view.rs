@@ -29,7 +29,17 @@ pub mod events {
             project_id: i64,
             documents: Vec<DocumentWithCustomers>,
         },
+        /// Emitted after a document is deleted, carrying the project's remaining documents.
+        DocumentDeleted {
+            project_id: i64,
+            documents: Vec<DocumentWithCustomers>,
+        },
     }
+}
+
+enum DocumentListChange {
+    Uploaded,
+    Deleted,
 }
 
 pub struct ProjectDocumentDetailView {
@@ -37,6 +47,7 @@ pub struct ProjectDocumentDetailView {
     pub documents: Vec<DocumentWithCustomers>,
     data_dir: Option<PathBuf>,
     is_uploading: bool,
+    is_deleting: bool,
     is_getting_customers: bool,
 }
 
@@ -63,6 +74,7 @@ impl ProjectDocumentDetailView {
                 .map_err(|e| eprintln!("{e}"))
                 .ok(),
             is_uploading: false,
+            is_deleting: false,
             is_getting_customers: false,
         }
     }
@@ -135,19 +147,27 @@ impl ProjectDocumentDetailView {
             let result = service.get_project_documents(project.project_id).await;
             let _ = this.update_in(cx, |this, window, cx| {
                 this.is_getting_customers = false;
-                this.apply_documents(project.project_id, result, "Customers updated", window, cx);
+                this.apply_documents(
+                    project.project_id,
+                    result,
+                    "Customers updated",
+                    DocumentListChange::Uploaded,
+                    window,
+                    cx,
+                );
             });
         })
         .detach();
     }
 
-    /// Stores freshly fetched documents, notifies the user and emits
-    /// [`events::DocumentDetailEvents::DocumentsUploaded`].
+    /// Stores freshly fetched documents, notifies the user and emits the
+    /// matching [`events::DocumentDetailEvents`] variant for `change`.
     fn apply_documents(
         &mut self,
         project_id: i64,
         result: Result<Vec<DocumentWithCustomers>, sqlx::Error>,
         message: &'static str,
+        change: DocumentListChange,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -155,10 +175,20 @@ impl ProjectDocumentDetailView {
             Ok(documents) => {
                 self.documents = documents.clone();
                 window.push_notification(message, cx);
-                cx.emit(events::DocumentDetailEvents::DocumentsUploaded {
-                    project_id,
-                    documents,
-                });
+                match change {
+                    DocumentListChange::Uploaded => {
+                        cx.emit(events::DocumentDetailEvents::DocumentsUploaded {
+                            project_id,
+                            documents,
+                        });
+                    }
+                    DocumentListChange::Deleted => {
+                        cx.emit(events::DocumentDetailEvents::DocumentDeleted {
+                            project_id,
+                            documents,
+                        });
+                    }
+                }
             }
             Err(e) => eprintln!("{e}"),
         }
@@ -224,6 +254,73 @@ impl ProjectDocumentDetailView {
                             project.project_id,
                             result,
                             "Document uploaded",
+                            DocumentListChange::Uploaded,
+                            window,
+                            cx,
+                        );
+                    });
+                })
+                .detach();
+            }
+            Err(e) => {
+                eprintln!("{e}")
+            }
+        }
+    }
+
+    /// Deletes `document_id` from the currently selected project.
+    ///
+    /// Does nothing (besides logging) if a delete is already running, no project
+    /// is selected, or the [`DocumentManager`] cannot be created. The delete runs
+    /// in the background. On success the project's documents are re-fetched, the
+    /// view is refreshed, a notification is shown and
+    /// [`events::DocumentDetailEvents::DocumentDeleted`] is emitted with the
+    /// remaining list so listeners (e.g. the projects list) can update their counts.
+    /// On failure nothing is refreshed or emitted.
+    pub fn delete_document(
+        &mut self,
+        document_id: i64,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.is_deleting {
+            return;
+        }
+
+        let pool = cx.global::<DbPool>().0.clone();
+        let document_manager = DocumentManager::new(pool);
+
+        let Some(project) = self.project_stats.clone() else {
+            println!(
+                "Tried to delete documentation but no project is settled through the self.project_stats (it should)"
+            );
+            return;
+        };
+
+        match document_manager {
+            Ok(service) => {
+                self.is_deleting = true;
+                cx.notify();
+
+                cx.spawn_in(window, async move |this, cx| {
+                    if let Err(e) = service.delete_document(document_id).await {
+                        let _ = this.update_in(cx, |this, window, cx| {
+                            this.is_deleting = false;
+                            eprintln!("{e}");
+                            window.push_notification(format!("Failed to delete document: {e}"), cx);
+                            cx.notify();
+                        });
+                        return;
+                    }
+
+                    let result = service.get_project_documents(project.project_id).await;
+                    let _ = this.update_in(cx, |this, window, cx| {
+                        this.is_deleting = false;
+                        this.apply_documents(
+                            project.project_id,
+                            result,
+                            "Document deleted",
+                            DocumentListChange::Deleted,
                             window,
                             cx,
                         );
@@ -358,9 +455,22 @@ impl Render for ProjectDocumentDetailView {
                     ),
             )
             .children(self.data_dir.clone().into_iter().flat_map(|dir| {
-                self.documents.iter().map(move |doc| {
-                    DocumentItem::new(doc.clone(), dir.clone(), doc.customer_count())
-                })
+                let is_deleting = self.is_deleting;
+                self.documents
+                    .iter()
+                    .map(|doc| {
+                        let document_id = doc.id;
+                        DocumentItem::new(
+                            doc.clone(),
+                            dir.clone(),
+                            doc.customer_count(),
+                            is_deleting,
+                            cx.listener(move |this, _, window, cx| {
+                                this.delete_document(document_id, window, cx);
+                            }),
+                        )
+                    })
+                    .collect::<Vec<_>>()
             }))
     }
 }
