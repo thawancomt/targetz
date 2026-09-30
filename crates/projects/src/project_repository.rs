@@ -5,6 +5,15 @@ use shared::{
 };
 use sqlx::{Pool, QueryBuilder, Sqlite};
 
+/// A project a customer is a stakeholder of, with the customer's role in it.
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct CustomerProject {
+    pub project_id: i64,
+    pub project_name: String,
+    pub status: String,
+    pub role: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct ProjectRepository {
     pool: Pool<Sqlite>,
@@ -186,6 +195,25 @@ impl ProjectRepository {
         .map_err(|e| AppRepositoryError::FailedToCreate(e.to_string()))?;
 
         Ok(result)
+    }
+
+    pub async fn get_projects_for_customer(
+        &self,
+        customer_id: i64,
+    ) -> Result<Vec<CustomerProject>, AppRepositoryError> {
+        sqlx::query_as::<_, CustomerProject>(
+            r#"
+                SELECT p.id AS project_id, p.name AS project_name, p.status AS status, pc.role AS role
+                FROM project_customer pc
+                JOIN projects p ON p.id = pc.project_id
+                WHERE pc.customer_id = ?
+                ORDER BY p.name ASC
+            "#,
+        )
+        .bind(customer_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| AppRepositoryError::FailedToFetch(e.to_string()))
     }
 
     pub async fn get_stakeholders(

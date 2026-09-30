@@ -10,7 +10,7 @@ pub use document_manager::{
 };
 pub use extractor::{DocumentExtractorService, ExtractorError, pdf_extractor::PdfExtractor};
 pub use models::{
-    CustomerDocumentStatus, Document, MentionedCustomer, ProjectDocument, ProjectDocumentCustomer,
+    CustomerDocumentStatus, CustomerMention, Document, MentionedCustomer, ProjectDocument, ProjectDocumentCustomer,
 };
 pub use relation_manager::{
     DocumentProcessingError, RelationManager, RelationManagerError, RelationManagerEvent,

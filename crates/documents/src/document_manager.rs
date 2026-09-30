@@ -905,6 +905,31 @@ impl DocumentManager {
         Ok(rows)
     }
 
+    /// Documents that mention this customer, one row per (project, document).
+    pub async fn get_documents_mentioning_customer(
+        &self,
+        customer_id: i64,
+    ) -> Result<Vec<crate::models::CustomerMention>, sqlx::Error> {
+        sqlx::query_as::<_, crate::models::CustomerMention>(
+            r#"
+            SELECT
+                p.id AS project_id,
+                p.name AS project_name,
+                d.id AS document_id,
+                d.original_name AS document_name,
+                pdc.status AS status
+            FROM project_document_customer pdc
+            INNER JOIN projects p ON p.id = pdc.project_id
+            INNER JOIN documents d ON d.id = pdc.document_id
+            WHERE pdc.customer_id = ?
+            ORDER BY p.name ASC, d.original_name ASC
+            "#,
+        )
+        .bind(customer_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     /// Sets confirmation for one document mention. Does not insert a row.
     ///
     /// Discovery owns insertion (`not_confirmed`). This only flips an existing

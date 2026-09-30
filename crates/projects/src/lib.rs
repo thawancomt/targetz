@@ -1,3 +1,4 @@
+pub mod customer_projects_section;
 pub mod edit_form_view;
 pub mod project_detail_view;
 pub mod project_form_view;

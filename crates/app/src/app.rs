@@ -12,6 +12,7 @@ use gpui_kit::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
 };
 use projects::{
+    customer_projects_section::CustomerProjectsSection,
     project_form_view::CreateProjectView,
     project_repository::ProjectRepository,
     projects_list_view::{events::ProjectListEvents, state::ProjectsListView},
@@ -20,6 +21,7 @@ use projects::{
 use documents::{
     document_manager::DocumentManager,
     ui::{
+        customer_documents_section::CustomerDocumentsSection,
         project_documents_list_view::ProjectDocumentsListView,
         project_documents_section::ProjectDocumentsSection,
         tab_documents_view::TabDocumentsView,
@@ -116,6 +118,27 @@ impl AppShell {
                             section.update(cx, |section, cx| {
                                 section.set_project(project_id, cx);
                             });
+                        }
+                    },
+                    cx,
+                );
+            });
+        });
+        let customer_projects_section = CustomerProjectsSection::view(window, cx);
+        let customer_documents_section = CustomerDocumentsSection::view(window, cx);
+        tab_customers_view.update(cx, |tab, cx| {
+            tab.customer_detail_view.update(cx, |detail, cx| {
+                detail.set_extra_sections(
+                    vec![
+                        customer_projects_section.clone().into(),
+                        customer_documents_section.clone().into(),
+                    ],
+                    {
+                        let projects = customer_projects_section.clone();
+                        let documents = customer_documents_section.clone();
+                        move |customer_id, cx| {
+                            projects.update(cx, |s, cx| s.set_customer(customer_id, cx));
+                            documents.update(cx, |s, cx| s.set_customer(customer_id, cx));
                         }
                     },
                     cx,

@@ -106,3 +106,19 @@ impl DocumentWithCustomers {
         self.customer_id_set().len()
     }
 }
+
+/// A document mention of one customer, seen from the customer side.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct CustomerMention {
+    pub project_id: i64,
+    pub project_name: String,
+    pub document_id: i64,
+    pub document_name: String,
+    pub status: String,
+}
+
+impl CustomerMention {
+    pub fn is_confirmed(&self) -> bool {
+        self.status == CustomerDocumentStatus::Confirmed.as_str()
+    }
+}

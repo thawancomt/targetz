@@ -1,5 +1,5 @@
 use gpui_kit::{
-    App, AppContext, Context, Entity, EventEmitter, FontWeight, InteractiveElement, IntoElement,
+    AnyView, App, AppContext, Context, Entity, EventEmitter, FontWeight, InteractiveElement, IntoElement,
     ParentElement, Render, Styled, Window,
     base::v_flex,
     component::{
@@ -34,6 +34,10 @@ pub struct CustomerDetailView {
     interaction_repository: InteractionRepository,
     create_interaction_view: Entity<CreateInteractionView>,
     pub edit_view: Entity<CustomerUpdateView>,
+    /// Projects and documents sections. Filled by the app shell so this crate
+    /// does not depend on `projects` or `documents`.
+    extra_sections: Vec<AnyView>,
+    on_customer_changed: Option<Box<dyn Fn(i64, &mut App) + 'static>>,
 }
 
 impl EventEmitter<AppEvent> for CustomerDetailView {}
@@ -96,7 +100,28 @@ impl CustomerDetailView {
             create_interaction_view,
             edit_view,
             interactions: None,
+            extra_sections: Vec::new(),
+            on_customer_changed: None,
         }
+    }
+
+    /// Installs the sections shown below the interactions and the hook that
+    /// reloads them when the open customer changes. The hook is owned by the
+    /// app shell.
+    pub fn set_extra_sections(
+        &mut self,
+        sections: Vec<AnyView>,
+        on_customer_changed: impl Fn(i64, &mut App) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.extra_sections = sections;
+        self.on_customer_changed = Some(Box::new(on_customer_changed));
+        if let Some(customer) = self.customer.as_ref() {
+            if let Some(hook) = self.on_customer_changed.as_ref() {
+                hook(customer.id, cx);
+            }
+        }
+        cx.notify();
     }
 
     pub fn hydrate_interactions(&mut self, cx: &mut Context<Self>) {
@@ -147,6 +172,9 @@ impl CustomerDetailView {
     }
 
     pub fn set_customer(&mut self, customer: Customer, cx: &mut Context<Self>) {
+        if let Some(hook) = self.on_customer_changed.as_ref() {
+            hook(customer.id, cx);
+        }
         self.customer = Some(customer.clone());
         self.create_interaction_view
             .update(cx, |interaction_view, interaction_view_context| {
@@ -396,6 +424,7 @@ impl Render for CustomerDetailView {
                         }
                     })
                     .child(self.create_interaction_view.clone().into_any_element())
+                    .children(self.extra_sections.iter().cloned())
                     .into_any_element()
             }
             None => div().into_any_element(),
