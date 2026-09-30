@@ -8,6 +8,7 @@ pub mod events;
 pub mod form_utils;
 pub mod project;
 pub mod theme;
+pub mod ui;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AppTab {

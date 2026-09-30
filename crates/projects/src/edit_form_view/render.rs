@@ -41,6 +41,7 @@ impl Render for ProjectUpdateView {
                 updated_at: project.updated_at,
                 budget: project.budget,
             },
+            None,
             cx,
         );
 

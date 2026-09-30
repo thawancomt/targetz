@@ -8,7 +8,10 @@ use gpui_kit::{
     div,
     prelude::FluentBuilder,
 };
-use shared::db::DbPool;
+use shared::{
+    db::DbPool,
+    ui::{rail_card, section_frame},
+};
 
 /// Documents that mention one customer, across all projects.
 ///
@@ -132,50 +135,62 @@ impl Render for CustomerDocumentsSection {
                 let project_id = mention.project_id;
                 let document_id = mention.document_id;
                 let confirmed = mention.is_confirmed();
-                div()
-                    .id(format!("customer-mention-{project_id}-{document_id}"))
-                    .h_flex()
-                    .w_full()
-                    .p_3()
-                    .gap_3()
-                    .justify_between()
-                    .items_center()
-                    .border_1()
-                    .border_color(theme.border)
-                    .rounded_md()
-                    .child(
-                        div()
-                            .v_flex()
-                            .gap_1()
-                            .child(div().text_sm().child(mention.document_name.clone()))
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .child(format!("Project: {}", mention.project_name)),
-                            ),
-                    )
-                    .child(
-                        Switch::new(format!("confirm-customer-mention-{project_id}-{document_id}"))
-                            .label(if confirmed { "Confirmed" } else { "Not confirmed" })
+                rail_card(
+                    false,
+                    div()
+                        .h_flex()
+                        .flex_1()
+                        .min_w_0()
+                        .p_3()
+                        .gap_3()
+                        .justify_between()
+                        .items_center()
+                        .child(
+                            div()
+                                .v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .gap_1()
+                                .child(div().text_sm().child(mention.document_name.clone()))
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.muted_foreground)
+                                        .child(format!("Project: {}", mention.project_name)),
+                                ),
+                        )
+                        .child(
+                            Switch::new(format!(
+                                "confirm-customer-mention-{project_id}-{document_id}"
+                            ))
+                            .label(if confirmed {
+                                "Confirmed"
+                            } else {
+                                "Not confirmed"
+                            })
                             .checked(confirmed)
-                            .on_change(cx.listener(move |this, checked, window, cx| {
-                                this.set_confirmed(project_id, document_id, *checked, window, cx);
-                            })),
-                    )
+                            .on_change(cx.listener(
+                                move |this, checked, window, cx| {
+                                    this.set_confirmed(
+                                        project_id,
+                                        document_id,
+                                        *checked,
+                                        window,
+                                        cx,
+                                    );
+                                },
+                            )),
+                        ),
+                    &theme,
+                )
+                .id(format!("customer-mention-{project_id}-{document_id}"))
             })
             .collect();
 
-        div()
+        let body = div()
             .v_flex()
             .w_full()
             .gap_2()
-            .child(
-                div()
-                    .text_lg()
-                    .text_color(theme.primary)
-                    .child(format!("Mentioned in documents [{}]", self.mentions.len())),
-            )
             .when(self.mentions.is_empty(), |parent| {
                 parent.child(
                     div()
@@ -192,6 +207,14 @@ impl Render for CustomerDocumentsSection {
                         .child("Not mentioned in any document."),
                 )
             })
-            .children(rows)
+            .children(rows);
+
+        section_frame(
+            "Mentioned in documents",
+            Some(self.mentions.len()),
+            None,
+            body,
+            &theme,
+        )
     }
 }

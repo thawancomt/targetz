@@ -14,7 +14,10 @@ use gpui_kit::{
     div,
     prelude::FluentBuilder,
 };
-use shared::db::DbPool;
+use shared::{
+    db::DbPool,
+    ui::{rail_card, section_frame},
+};
 use sqlx::{Pool, Sqlite};
 use std::path::PathBuf;
 
@@ -370,111 +373,95 @@ impl Render for ProjectDocumentsSection {
             .map(|mention| mention_row(mention, cx))
             .collect();
 
+        let documents_body = div()
+            .v_flex()
+            .w_full()
+            .gap_2()
+            .child(
+                div().h_flex().justify_end().gap_2().child(
+                    Button::new("section-upload-doc")
+                        .primary()
+                        .disabled(is_uploading)
+                        .when_else(
+                            is_uploading,
+                            |this| this.label("Uploading..."),
+                            |this| this.label("Upload").child(IconName::Plus),
+                        )
+                        .on_click(on_upload),
+                ),
+            )
+            .when(documents_empty, |parent| parent.child(empty_documents))
+            .children(document_items);
+
+        let mentions_body = div()
+            .v_flex()
+            .w_full()
+            .gap_2()
+            .child(
+                div()
+                    .h_flex()
+                    .justify_between()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(theme.muted_foreground)
+                            .child("Detected in documents. Not the stakeholder list."),
+                    )
+                    .child(
+                        Button::new("section-scan-customers")
+                            .disabled(is_scanning)
+                            .when_else(
+                                is_scanning,
+                                |this| this.label("Scanning..."),
+                                |this| this.label("Scan documents").child(IconName::User),
+                            )
+                            .on_click(on_scan),
+                    ),
+            )
+            .when(mentions_empty, |parent| parent.child(empty_mentions))
+            .children(mention_rows);
+
         div()
             .v_flex()
             .w_full()
-            .gap_4()
-            .child(section_header(
-                "documents-section",
-                format!("Documents [{document_count}]"),
-                documents_expanded,
-                toggle_documents,
+            .gap_6()
+            .child(section_frame(
+                "Documents",
+                Some(document_count),
+                Some(toggle_button(
+                    "documents-section",
+                    documents_expanded,
+                    toggle_documents,
+                )),
+                div().when(documents_expanded, |d| d.child(documents_body)),
                 &theme,
             ))
-            .when(documents_expanded, |parent| {
-                parent.child(
-                    div()
-                        .v_flex()
-                        .w_full()
-                        .gap_2()
-                        .p_2()
-                        .border_1()
-                        .border_color(theme.border)
-                        .rounded_md()
-                        .child(
-                            div().h_flex().justify_end().gap_2().child(
-                                Button::new("section-upload-doc")
-                                    .primary()
-                                    .disabled(is_uploading)
-                                    .when_else(
-                                        is_uploading,
-                                        |this| this.label("Uploading..."),
-                                        |this| this.label("Upload").child(IconName::Plus),
-                                    )
-                                    .on_click(on_upload),
-                            ),
-                        )
-                        .when(documents_empty, |parent| parent.child(empty_documents))
-                        .children(document_items),
-                )
-            })
-            .child(section_header(
-                "mentions-section",
-                format!("Mentioned customers [{mention_count}]"),
-                mentions_expanded,
-                toggle_mentions,
+            .child(section_frame(
+                "Mentioned customers",
+                Some(mention_count),
+                Some(toggle_button(
+                    "mentions-section",
+                    mentions_expanded,
+                    toggle_mentions,
+                )),
+                div().when(mentions_expanded, |d| d.child(mentions_body)),
                 &theme,
             ))
-            .when(mentions_expanded, |parent| {
-                parent.child(
-                    div()
-                        .v_flex()
-                        .w_full()
-                        .gap_2()
-                        .p_2()
-                        .border_1()
-                        .border_color(theme.border)
-                        .rounded_md()
-                        .child(
-                            div()
-                                .h_flex()
-                                .justify_between()
-                                .items_center()
-                                .child(
-                                    div()
-                                        .text_sm()
-                                        .text_color(theme.muted_foreground)
-                                        .child("Detected in documents. Not the stakeholder list."),
-                                )
-                                .child(
-                                    Button::new("section-scan-customers")
-                                        .disabled(is_scanning)
-                                        .when_else(
-                                            is_scanning,
-                                            |this| this.label("Scanning..."),
-                                            |this| {
-                                                this.label("Scan documents").child(IconName::User)
-                                            },
-                                        )
-                                        .on_click(on_scan),
-                                ),
-                        )
-                        .when(mentions_empty, |parent| parent.child(empty_mentions))
-                        .children(mention_rows),
-                )
-            })
     }
 }
 
-fn section_header(
+fn toggle_button(
     id: &'static str,
-    title: String,
     expanded: bool,
     on_click: impl Fn(&gpui_kit::ClickEvent, &mut Window, &mut App) + 'static,
-    theme: &gpui_kit::component::Theme,
-) -> impl gpui_kit::IntoElement {
-    div()
-        .h_flex()
-        .w_full()
-        .justify_between()
-        .items_center()
-        .child(div().text_lg().text_color(theme.primary).child(title))
-        .child(
-            Button::new(id)
-                .secondary()
-                .label(if expanded { "Hide" } else { "Show" })
-                .on_click(on_click),
-        )
+) -> gpui_kit::AnyElement {
+    Button::new(id)
+        .secondary()
+        .label(if expanded { "Hide" } else { "Show" })
+        .on_click(on_click)
+        .into_any_element()
 }
 
 fn empty_row(
@@ -503,17 +490,16 @@ fn mention_row(
     let document_id = mention.document_id;
     let confirmed = mention.is_confirmed();
 
-    div()
-        .id(format!("mention-{customer_id}-{document_id}"))
+    rail_card(
+        false,
+        div()
         .h_flex()
-        .w_full()
+        .flex_1()
+        .min_w_0()
         .p_3()
         .gap_3()
         .justify_between()
         .items_center()
-        .border_1()
-        .border_color(theme.border)
-        .rounded_md()
         .child(
             div()
                 .v_flex()
@@ -537,6 +523,9 @@ fn mention_row(
                 .on_change(cx.listener(move |this, checked, window, cx| {
                     this.set_confirmed(customer_id, document_id, *checked, window, cx);
                 })),
-        )
-        .into_any_element()
+        ),
+        &theme,
+    )
+    .id(format!("mention-{customer_id}-{document_id}"))
+    .into_any_element()
 }

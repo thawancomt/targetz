@@ -10,6 +10,7 @@ use gpui_kit::{
     },
     div,
 };
+use shared::ui::rail_card;
 
 /// Card showing a document's name, extension and path, with buttons to open
 /// the file in the OS default application or to ask the parent to delete it.
@@ -52,57 +53,63 @@ impl RenderOnce for DocumentItem {
         let full_path = self.data_dir.join(&doc.path);
         let on_delete = self.on_delete;
 
-        div()
-            .h_flex()
-            .w_full()
-            .p_4()
-            .gap_4()
-            .justify_between()
-            .items_end()
-            .border_1()
-            .border_color(theme.border)
-            .rounded_md()
-            .child(
-                div()
-                    .v_flex()
-                    .gap_1()
-                    .child(div().child(doc.original_name.clone()).text_xl())
-                    .child(
-                        div()
-                            .v_flex()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("Extension: {}", doc.extension))
-                            .child(format!("Path: {}", doc.path))
-                            .child(format!("Customers mentioned: {}", self.customer_count)),
-                    ),
-            )
-            .child(
-                div()
-                    .h_flex()
-                    .gap_2()
-                    .child(
-                        Button::new(format!("open-doc-{}", doc.id))
-                            .primary()
-                            .label("Open")
-                            .child(IconName::ExternalLink)
-                            .on_click(move |_, _, _| {
-                                // Hands the file to the OS, which picks the default app.
-                                if let Err(e) = open::that_detached(&full_path) {
-                                    eprintln!("Failed to open {}: {e}", full_path.display());
-                                }
-                            }),
-                    )
-                    .child(
-                        Button::new(format!("delete-doc-{}", doc.id))
-                            .disabled(delete_disabled)
-                            .secondary()
-                            .label("Delete")
-                            .child(IconName::SquareTerminal)
-                            .on_click(move |event, window, cx| {
-                                (on_delete)(event, window, cx);
-                            }),
-                    ),
-            )
+        rail_card(
+            false,
+            div()
+                .h_flex()
+                .flex_1()
+                .min_w_0()
+                .p_3()
+                .gap_3()
+                .justify_between()
+                .items_center()
+                .child(
+                    div()
+                        .v_flex()
+                        .gap_1()
+                        .child(
+                            div()
+                                .child(doc.original_name.clone())
+                                .text_color(theme.foreground),
+                        )
+                        .child(
+                            div()
+                                .v_flex()
+                                .font_family("Geist Mono")
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child(format!(".{} · {}", doc.extension, doc.path))
+                                .child(format!("{} customers mentioned", self.customer_count)),
+                        ),
+                )
+                .child(
+                    div()
+                        .h_flex()
+                        .gap_2()
+                        .child(
+                            Button::new(format!("open-doc-{}", doc.id))
+                                .primary()
+                                .label("Open")
+                                .child(IconName::ExternalLink)
+                                .on_click(move |_, _, _| {
+                                    // Hands the file to the OS, which picks the default app.
+                                    if let Err(e) = open::that_detached(&full_path) {
+                                        eprintln!("Failed to open {}: {e}", full_path.display());
+                                    }
+                                }),
+                        )
+                        .child(
+                            Button::new(format!("delete-doc-{}", doc.id))
+                                .disabled(delete_disabled)
+                                .secondary()
+                                .label("Delete")
+                                .child(IconName::SquareTerminal)
+                                .on_click(move |event, window, cx| {
+                                    (on_delete)(event, window, cx);
+                                }),
+                        ),
+                ),
+            &theme,
+        )
     }
 }

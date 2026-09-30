@@ -14,6 +14,8 @@ use gpui_kit::{base::Disableable, div, px};
 use shared::customer::{Customer, Persisted};
 use shared::db::DbPool;
 use shared::events::AppEvent;
+use shared::ui::{caption, rail_card};
+use gpui_kit::base::v_flex;
 
 use crate::create_customer_view::{CreateCustomerEvent, CreateCustomerView};
 use crate::customer_repository::CustomerRepository;
@@ -61,22 +63,15 @@ pub struct CustomerListView {
     pub create_customer_view: Entity<CreateCustomerView>,
 }
 
-pub fn tag_item(label: &str, value: String, cx: &Context<CustomerListView>) -> impl IntoElement {
-    div().flex().child(
-        Tag::secondary().child(
-            div()
-                .flex()
-                .gap_1()
-                .child(
-                    div()
-                        .child(format!("{}", label))
-                        .text_color(cx.theme().primary)
-                        .font_family("Geist Mono")
-                        .font_weight(FontWeight::BOLD),
-                )
-                .child(format!("{}", value)),
-        ),
-    )
+/// Inline `CAPTION value` pair for the metadata strip.
+fn meta_pair(label: &'static str, value: String, theme: &gpui_kit::component::Theme) -> impl IntoElement {
+    div()
+        .flex()
+        .gap_2()
+        .min_w_0()
+        .text_sm()
+        .child(caption(label, theme).flex_none())
+        .child(div().min_w_0().overflow_hidden().child(value))
 }
 
 pub fn customer_item(
@@ -85,116 +80,147 @@ pub fn customer_item(
     cx: &Context<CustomerListView>,
 ) -> impl IntoElement {
     let id = customer.id.to_owned();
-    div()
-        .id(id.to_string())
-        .hover(|f| f.border_1().border_color(cx.theme().selection))
-        .h_auto()
-        .w_full()
-        .border_1()
-        .border_color(if is_selected {
-            cx.theme().primary
-        } else {
-            cx.theme().border
-        })
-        .when(!is_selected, |f| f.bg(cx.theme().accent))
-        .when(is_selected, |f| f.bg(cx.theme().selection))
-        .p_2()
-        .child(
-            div()
-                .w_full()
-                .min_w_full()
-                .flex()
-                .flex_col()
-                .gap_2()
-                .child(div().child(format!("{}", customer.name)).text_2xl())
-                .child(
-                    div().flex().child(
-                        Tag::primary()
-                            .child(format!("{}", customer.email))
-                            .w_auto()
-                            .flex_shrink_1(),
-                    ),
-                )
-                .w_auto()
-                .child({
-                    let metadata_tags = [
-                        ("Instagram", customer.instagram_url.as_deref()),
-                        ("Site", customer.site_url.as_deref()),
-                        ("Address", customer.address.as_deref()),
-                    ];
+    let theme = cx.theme().clone();
 
-                    div().w_full().flex().mt_1().gap_2().children(
-                        metadata_tags.into_iter().filter_map(|(label, val)| {
-                            val.filter(|s| !s.trim().is_empty())
-                                .map(|v| tag_item(label, v.to_string(), cx))
-                        }),
+    let metadata: Vec<_> = [
+        ("Instagram", customer.instagram_url.as_deref()),
+        ("Site", customer.site_url.as_deref()),
+        ("Address", customer.address.as_deref()),
+    ]
+    .into_iter()
+    .filter_map(|(label, val)| {
+        val.filter(|s| !s.trim().is_empty())
+            .map(|v| meta_pair(label, v.to_string(), &theme))
+    })
+    .collect();
+
+    rail_card(
+        is_selected,
+            v_flex()
+                .flex_1()
+                .min_w_0()
+                .p_3()
+                .gap_2()
+                .child(
+                    div()
+                        .flex()
+                        .justify_between()
+                        .items_center()
+                        .child(caption(format!("Customer #{id}"), &theme))
+                        .child(
+                            div()
+                                .flex()
+                                .gap_2()
+                                .child(Tag::secondary().child(if customer.is_client {
+                                    "Client"
+                                } else {
+                                    "Prospect"
+                                }))
+                                .child(Tag::secondary().child(if customer.contacted {
+                                    "Contacted"
+                                } else {
+                                    "Pending"
+                                })),
+                        ),
+                )
+                .child(
+                    v_flex()
+                        .gap_1()
+                        .child(
+                            div()
+                                .child(customer.name.clone())
+                                .text_xl()
+                                .text_color(theme.foreground),
+                        )
+                        .child(
+                            div()
+                                .child(customer.email.clone())
+                                .font_family("Geist Mono")
+                                .text_xs()
+                                .text_color(theme.muted_foreground),
+                        ),
+                )
+                .when(!metadata.is_empty(), |d| {
+                    d.child(
+                        v_flex()
+                            .gap_1()
+                            .pt_2()
+                            .border_t_1()
+                            .border_color(theme.border)
+                            .children(metadata),
                     )
                 })
                 .child(
                     div()
                         .flex()
-                        .gap_5()
-                        .mt_1()
+                        .justify_between()
+                        .items_center()
+                        .gap_3()
+                        .pt_2()
+                        .border_t_1()
+                        .border_color(theme.border)
                         .child(
-                            div().flex().gap_2().items_center().child(
-                                Switch::new(format!("{id}-contact-toggle"))
-                                    .label("Our client?")
-                                    .checked(customer.is_client)
-                                    .on_change(cx.listener(move |this, value, window, cx| {
-                                        this.set_boolean_field(
-                                            customer.id,
-                                            *value,
-                                            PatchField::CLIENT,
-                                            cx,
-                                        );
-                                        window.push_notification("Is client toggle", cx);
-                                        cx.notify();
-                                    })),
-                            ),
+                            div()
+                                .flex()
+                                .gap_4()
+                                .child(
+                                    Switch::new(format!("{id}-contact-toggle"))
+                                        .label("Client")
+                                        .checked(customer.is_client)
+                                        .on_change(cx.listener(move |this, value, window, cx| {
+                                            this.set_boolean_field(
+                                                customer.id,
+                                                *value,
+                                                PatchField::CLIENT,
+                                                cx,
+                                            );
+                                            window.push_notification("Is client toggle", cx);
+                                            cx.notify();
+                                        })),
+                                )
+                                .child(
+                                    Switch::new(format!("{id}-client-toggle"))
+                                        .label("Contacted")
+                                        .checked(customer.contacted.to_owned())
+                                        .on_change(cx.listener(move |this, value, window, cx| {
+                                            this.set_boolean_field(
+                                                customer.id.to_owned(),
+                                                *value,
+                                                PatchField::CONTACTED,
+                                                cx,
+                                            );
+                                            window.push_notification("Contacted toggle", cx);
+                                            cx.notify();
+                                        })),
+                                ),
                         )
                         .child(
-                            div().flex().gap_2().items_center().child(
-                                Switch::new(format!("{id}-client-toggle"))
-                                    .label("Contacted?")
-                                    .checked(customer.contacted.to_owned())
-                                    .on_change(cx.listener(move |this, value, window, cx| {
-                                        this.set_boolean_field(
-                                            customer.id.to_owned(),
-                                            *value,
-                                            PatchField::CONTACTED,
-                                            cx,
-                                        );
-                                        window.push_notification("Contacted toggle", cx);
-                                        cx.notify();
-                                    })),
-                            ),
-                        ),
-                )
-                .child(
-                    div()
-                        .w_full()
-                        .flex()
-                        .justify_end()
-                        .gap_2()
-                        .child(
-                            Button::new(format!("go-to-details-{}", id.to_string()))
-                                .primary()
-                                .label("View")
-                                .on_click(cx.listener(move |this, _, _window, cx| {
-                                    cx.emit(CustomerListViewEvent::OPEN(customer.clone()));
-                                    this.toggle_customer(customer.clone(), cx);
-                                })),
-                        )
-                        .child(
-                            Button::new(id.to_string())
-                                .label("Delete")
-                                .secondary()
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.delete_customer(id.clone(), cx);
-                                })),
+                            div()
+                                .flex()
+                                .gap_2()
+                                .child(
+                                    Button::new(format!("go-to-details-{}", id.to_string()))
+                                        .primary()
+                                        .label("View")
+                                        .on_click(cx.listener(move |this, _, _window, cx| {
+                                            cx.emit(CustomerListViewEvent::OPEN(customer.clone()));
+                                            this.toggle_customer(customer.clone(), cx);
+                                        })),
+                                )
+                                .child(
+                                    Button::new(id.to_string())
+                                        .label("Delete")
+                                        .secondary()
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            this.delete_customer(id.clone(), cx);
+                                        })),
+                                ),
                         ),
                 ),
-        )
+        &theme,
+    )
+    .id(id.to_string())
+    .hover(|f| f.border_color(theme.selection))
 }
 
 impl Render for CustomerListView {

@@ -1,8 +1,8 @@
 use gpui_kit::{
-    Context, IntoElement, ParentElement, Render, Styled, base::v_flex, component::ActiveTheme, div,
-    prelude::FluentBuilder,
+    Context, IntoElement, ParentElement, Render, Styled, base::v_flex, component::ActiveTheme,
+    div, prelude::FluentBuilder,
 };
-use shared::customer::Customer;
+use shared::{customer::Customer, ui::section_frame};
 
 use crate::project_detail_view::{
     components::customer_item::customer_item, project_relations::state::ProjectRelationView,
@@ -33,86 +33,52 @@ impl Render for ProjectRelationView {
             .map(|c| customer_item(c, cx).into_any_element())
             .collect();
 
+        let empty = |message: &'static str| {
+            div()
+                .w_full()
+                .p_3()
+                .flex()
+                .items_center()
+                .justify_center()
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .child(message)
+        };
+
+        let stakeholder_count = stakeholders.len();
+        let stakeholders_body = v_flex()
+            .w_full()
+            .gap_2()
+            .when(stakeholders.is_empty(), |d| {
+                d.child(empty("No stakeholders added"))
+            })
+            .children(stakeholders);
+
+        let customer_count = customer_views.len();
+        let customers_body = v_flex()
+            .w_full()
+            .gap_2()
+            .when(customer_views.is_empty(), |d| {
+                d.child(empty("No customers available to add"))
+            })
+            .children(customer_views);
+
         v_flex()
             .w_full()
-            .gap_4()
-            .child(
-                v_flex()
-                    .gap_2()
-                    .child(
-                        div()
-                            .child(format!("Stakeholders [{}]", stakeholders.len()))
-                            .text_lg()
-                            .text_color(theme.primary),
-                    )
-                    .when(stakeholders.is_empty(), |d| {
-                        d.child(
-                            div()
-                                .w_full()
-                                .p_4()
-                                .border_1()
-                                .border_color(theme.border)
-                                .rounded_md()
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .text_sm()
-                                .text_color(theme.muted_foreground)
-                                .child("No stakeholders added"),
-                        )
-                    })
-                    .when(!stakeholders.is_empty(), |d| {
-                        d.child(
-                            div()
-                                .w_full()
-                                .p_2()
-                                .border_1()
-                                .border_color(theme.border)
-                                .rounded_md()
-                                .grid()
-                                .gap_2()
-                                .children(stakeholders),
-                        )
-                    }),
-            )
-            .child(
-                v_flex()
-                    .gap_2()
-                    .child(
-                        div()
-                            .child(format!("Customers [{}]", customer_views.len()))
-                            .text_lg()
-                            .text_color(theme.primary),
-                    )
-                    .when(customer_views.is_empty(), |d| {
-                        d.child(
-                            div()
-                                .w_full()
-                                .p_4()
-                                .border_1()
-                                .border_color(theme.border)
-                                .rounded_md()
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .text_sm()
-                                .text_color(theme.muted_foreground)
-                                .child("No customers available to add"),
-                        )
-                    })
-                    .when(!customer_views.is_empty(), |d| {
-                        d.child(
-                            div()
-                                .w_full()
-                                .p_2()
-                                .border_1()
-                                .border_color(theme.border)
-                                .rounded_md()
-                                .grid()
-                                .gap_2()
-                                .children(customer_views),
-                        )
-                    }),
-            )
+            .gap_6()
+            .child(section_frame(
+                "Stakeholders",
+                Some(stakeholder_count),
+                None,
+                stakeholders_body,
+                &theme,
+            ))
+            .child(section_frame(
+                "Available customers",
+                Some(customer_count),
+                None,
+                customers_body,
+                &theme,
+            ))
     }
 }

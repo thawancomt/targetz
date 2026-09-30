@@ -1,14 +1,17 @@
 use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled,
-    base::Disableable,
+    base::{Disableable, v_flex},
     component::{
         ActiveTheme,
         button::{Button, ButtonVariants},
         tag::Tag,
     },
-    div,
+    div, px,
 };
-use shared::project::{Project, ProjectStatus};
+use shared::{
+    project::{Project, ProjectStatus},
+    ui::{caption, rail_card},
+};
 
 use crate::projects_list_view::components::events::ProjectItemEvents;
 
@@ -42,13 +45,10 @@ impl Render for ProjectItem {
             ..
         } = self.project.clone();
 
-        // label pequeno em cima, valor embaixo
         let field = |label: &'static str, value: String| {
-            div()
-                .flex()
-                .flex_col()
-                .gap_0p5()
-                .child(div().text_xs().text_color(muted).child(label))
+            v_flex()
+                .gap_1()
+                .child(caption(label, theme))
                 .child(div().text_sm().child(value))
         };
 
@@ -70,75 +70,75 @@ impl Render for ProjectItem {
         }
         .child(status.as_str());
 
-        div()
-            .w_full()
-            .p_4()
-            .gap_3()
-            .flex()
-            .flex_col()
-            .border_1()
-            .border_color(theme.border)
-            .bg(theme.background)
-            // header: nome + meta à esquerda, status à direita
-            .child(
-                div().flex().gap_2().items_start().child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap_2()
-                                .text_lg()
-                                .text_color(theme.foreground)
-                                .child(name)
-                                .child(status_tag),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .gap_2()
-                                .text_xs()
-                                .text_color(muted)
-                                .child(format!("v{current_version}"))
-                                .children(codename.map(|c| format!("· #{c}")))
-                                .children(site_url.map(|u| format!("· {u}"))),
-                        ),
-                ),
-            )
-            // descrição só aparece se existir
-            .children(description.filter(|d| !d.trim().is_empty()).map(|d| {
-                div()
+        let mut caption_text = format!("Project #{id} · v{current_version}");
+        if let Some(c) = codename.filter(|c| !c.is_empty()) {
+            caption_text.push_str(&format!(" · {c}"));
+        }
+
+        rail_card(
+            false,
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
                     .p_3()
-                    .bg(theme.muted)
-                    .text_sm()
-                    .text_color(theme.foreground)
-                    .child(d)
-            }))
-            // rodapé: período + orçamento | botão
-            .child(
-                div()
-                    .flex()
-                    .items_end()
-                    .justify_between()
+                    .gap_2()
                     .child(
                         div()
                             .flex()
-                            .gap_6()
-                            .child(field("Deadline", period))
-                            .child(field("Budget", budget)),
+                            .justify_between()
+                            .items_center()
+                            .gap_2()
+                            .child(caption(caption_text, theme))
+                            .child(status_tag),
                     )
                     .child(
-                        Button::new(format!("open-project-{id}"))
-                            .primary()
-                            .label("Open")
-                            .on_click(cx.listener(|this, _, _window, cx| {
-                                this.open(cx);
+                        v_flex()
+                            .gap_1()
+                            .child(div().child(name).text_xl().text_color(theme.foreground))
+                            .children(site_url.filter(|u| !u.is_empty()).map(|u| {
+                                div()
+                                    .child(u)
+                                    .font_family("Geist Mono")
+                                    .text_xs()
+                                    .text_color(muted)
                             })),
+                    )
+                    .children(description.filter(|d| !d.trim().is_empty()).map(|d| {
+                        div()
+                            .p_2()
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(theme.background)
+                            .text_sm()
+                            .text_color(theme.foreground)
+                            .child(d)
+                    }))
+                    .child(
+                        div()
+                            .flex()
+                            .items_end()
+                            .justify_between()
+                            .pt_2()
+                            .border_t_1()
+                            .border_color(theme.border)
+                            .child(
+                                div()
+                                    .flex()
+                                    .gap_6()
+                                    .child(field("Period", period))
+                                    .child(field("Budget", budget)),
+                            )
+                            .child(
+                                Button::new(format!("open-project-{id}"))
+                                    .primary()
+                                    .label("Open")
+                                    .on_click(cx.listener(|this, _, _window, cx| {
+                                        this.open(cx);
+                                    })),
+                            ),
                     ),
-            )
+            &theme,
+        )
     }
 }
 

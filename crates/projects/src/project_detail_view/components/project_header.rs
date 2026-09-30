@@ -1,56 +1,53 @@
 use gpui_kit::{
-    App, Context, Div, IntoElement, ParentElement, Styled,
-    component::{
-        ActiveTheme,
-        button::{Button, ButtonVariants},
-        scroll::ScrollableElement,
-    },
+    AnyElement, App, Div, IntoElement, ParentElement, Styled,
+    base::{StyledExt, v_flex},
+    component::{ActiveTheme, tag::Tag},
     div,
     prelude::FluentBuilder,
 };
-use shared::project::{Project, ProjectStatus};
+use shared::{project::Project, ui::caption};
 
-use crate::project_detail_view::state::ProjectDetailView;
-
-pub(crate) fn project_header(project: Project, cx: &mut App) -> Div {
+/// Title block: mono caption, name, status tag, description. `actions` sits
+/// on the right (edit button).
+pub(crate) fn project_header(project: Project, actions: Option<AnyElement>, cx: &mut App) -> Div {
     let theme = cx.theme();
 
     let Project {
+        id,
         name,
         current_version,
-        created_at: _,
         status,
         description,
-        start_date: _,
-        site_url: _,
         codename,
-        target_deadline: _,
-        updated_at: _,
-        budget: _,
         ..
-    } = project.clone();
+    } = project;
+
+    let mut caption_text = format!("PROJECT #{id} · v{current_version}");
+    if let Some(codename) = codename.filter(|c| !c.is_empty()) {
+        caption_text.push_str(&format!(" · {codename}"));
+    }
 
     div()
-        .flex()
-        .p_2()
-        .child(div().bg(theme.primary).w_48().h_48())
+        .h_flex()
+        .justify_between()
+        .items_start()
+        .gap_4()
+        .pb_4()
+        .border_b_1()
+        .border_color(theme.border)
         .child(
-            div().p_2().flex().flex_1().bg(theme.secondary).child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .justify_between()
-                    .child(
-                        div()
-                            .child(div().child(name).text_2xl().text_color(theme.primary))
-                            .child(format!(
-                                "{} • {}",
-                                current_version,
-                                codename.unwrap_or_default()
-                            )),
-                    )
-                    .child(div().child(description.unwrap_or("No description".to_string()))),
-            ),
+            v_flex()
+                .flex_1()
+                .min_w_0()
+                .gap_2()
+                .child(caption(caption_text, theme))
+                .child(div().w_full().child(name).text_3xl().text_color(theme.foreground))
+                .child(div().h_flex().child(Tag::secondary().child(status.as_str())))
+                .child(
+                    div()
+                        .child(description.unwrap_or_else(|| "No description".to_string()))
+                        .text_color(theme.muted_foreground),
+                ),
         )
+        .when_some(actions, |d, a| d.child(div().flex_none().child(a)))
 }

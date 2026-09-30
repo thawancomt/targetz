@@ -14,7 +14,10 @@ use gpui_kit::{
     div,
     prelude::FluentBuilder,
 };
-use shared::customer::{Stakeholder, StakeholderRole};
+use shared::{
+    customer::{Stakeholder, StakeholderRole},
+    ui::rail_card,
+};
 
 pub struct StakeholderItemView {
     pub stakeholder: Stakeholder,
@@ -88,47 +91,51 @@ impl Render for StakeholderItemView {
         let select_role = self.select_state.read(cx).selected_value();
         let theme = cx.theme();
 
-        div()
-            .flex()
-            .justify_between()
-            .bg(theme.secondary)
-            .p_2()
-            .border_1()
-            .border_color(theme.border)
-            .child(
-                div()
-                    .child(format!(
-                        "{} [{}]",
-                        self.stakeholder.name,
-                        if select_role.is_some() {
-                            select_role.unwrap()
-                        } else {
-                            self.stakeholder.role.as_str()
-                        }
-                    ))
-                    .child(
-                        div()
-                            .child(format!("Created at: {}", self.stakeholder.created_at))
-                            .text_xs(),
-                    )
-                    .when(!self.stakeholder.email.is_empty(), |d| {
-                        d.child(div().child(format!("email: {}", self.stakeholder.email)))
-                            .text_xs()
-                    }),
-            )
-            .child(
-                div()
-                    .flex()
-                    .gap_2()
-                    .child(Select::new(&self.select_state))
-                    .child(
-                        Button::new(format!("remove-{}", self.stakeholder.id))
-                            .danger()
-                            .label("Remove")
-                            .on_click(cx.listener(move |_, _, _, cx| {
-                                cx.emit(StakeholderItemEvent::RemoveStakeholder(sh.clone()))
-                            })),
-                    ),
-            )
+        rail_card(
+            false,
+            div()
+                .flex()
+                .flex_1()
+                .min_w_0()
+                .justify_between()
+                .items_center()
+                .p_2()
+                .child(
+                    div()
+                        .child(format!(
+                            "{} [{}]",
+                            self.stakeholder.name,
+                            if select_role.is_some() {
+                                select_role.unwrap()
+                            } else {
+                                self.stakeholder.role.as_str()
+                            }
+                        ))
+                        .child(
+                            div()
+                                .child(format!("Created at: {}", self.stakeholder.created_at))
+                                .text_xs(),
+                        )
+                        .when(!self.stakeholder.email.is_empty(), |d| {
+                            d.child(div().child(format!("email: {}", self.stakeholder.email)))
+                                .text_xs()
+                        }),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(Select::new(&self.select_state))
+                        .child(
+                            Button::new(format!("remove-{}", self.stakeholder.id))
+                                .danger()
+                                .label("Remove")
+                                .on_click(cx.listener(move |_, _, _, cx| {
+                                    cx.emit(StakeholderItemEvent::RemoveStakeholder(sh.clone()))
+                                })),
+                        ),
+                ),
+            theme,
+        )
     }
 }

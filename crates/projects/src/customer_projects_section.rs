@@ -5,7 +5,10 @@ use gpui_kit::{
     div,
     prelude::FluentBuilder,
 };
-use shared::db::DbPool;
+use shared::{
+    db::DbPool,
+    ui::{rail_card, section_frame},
+};
 
 use crate::project_repository::{CustomerProject, ProjectRepository};
 
@@ -39,7 +42,9 @@ impl CustomerProjectsSection {
         cx.spawn(async move |this, cx| {
             let repository = ProjectRepository::new(pool);
             let result = cx
-                .background_spawn(async move { repository.get_projects_for_customer(customer_id).await })
+                .background_spawn(
+                    async move { repository.get_projects_for_customer(customer_id).await },
+                )
                 .await;
             let _ = this.update(cx, |section, cx| {
                 if section.load_generation != generation {
@@ -62,16 +67,10 @@ impl Render for CustomerProjectsSection {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
 
-        div()
+        let body = div()
             .v_flex()
             .w_full()
             .gap_2()
-            .child(
-                div()
-                    .text_lg()
-                    .text_color(theme.primary)
-                    .child(format!("Projects [{}]", self.projects.len())),
-            )
             .when(self.projects.is_empty(), |parent| {
                 parent.child(
                     div()
@@ -89,29 +88,33 @@ impl Render for CustomerProjectsSection {
                 )
             })
             .children(self.projects.iter().map(|project| {
-                div()
-                    .h_flex()
-                    .w_full()
-                    .p_3()
-                    .gap_3()
-                    .justify_between()
-                    .items_center()
-                    .border_1()
-                    .border_color(theme.border)
-                    .rounded_md()
-                    .child(
-                        div()
-                            .v_flex()
-                            .gap_1()
-                            .child(div().text_sm().child(project.project_name.clone()))
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .child(format!("Role: {}", project.role)),
-                            ),
-                    )
-                    .child(Tag::secondary().child(project.status.clone()))
-            }))
+                rail_card(
+                    false,
+                    div()
+                        .h_flex()
+                        .flex_1()
+                        .min_w_0()
+                        .p_3()
+                        .gap_3()
+                        .justify_between()
+                        .items_center()
+                        .child(
+                            div()
+                                .v_flex()
+                                .gap_1()
+                                .child(div().text_sm().child(project.project_name.clone()))
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.muted_foreground)
+                                        .child(format!("Role: {}", project.role)),
+                                ),
+                        )
+                        .child(Tag::secondary().child(project.status.clone())),
+                    &theme,
+                )
+            }));
+
+        section_frame("Projects", Some(self.projects.len()), None, body, &theme)
     }
 }

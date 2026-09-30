@@ -1,6 +1,8 @@
+pub mod settings_manager;
 pub mod settings_view;
 pub mod themes;
 
+pub use settings_manager::{AppSettings, SettingsManager};
 pub use themes::{init_themes, THEME_CONTENTS};
 
 #[cfg(test)]

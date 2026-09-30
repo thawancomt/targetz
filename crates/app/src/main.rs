@@ -1,7 +1,7 @@
 use gpui_kit::{
     AppContext, Bounds, SharedString, TitlebarOptions, WindowBounds, WindowOptions, block_on,
-    component::{Root, Theme, ThemeRegistry},
-    point, px, size,
+    component::Root,
+    px, size,
 };
 use shared::db::DbPool;
 use sqlx::{
@@ -72,15 +72,7 @@ async fn main() {
         cx.set_global(DbPool(pool.clone()));
 
         settings::init_themes(cx);
-
-        let dark_name = SharedString::from("Dark");
-        let registry = ThemeRegistry::global(cx);
-        if let Some(theme) = registry.themes().get(&dark_name).cloned() {
-            Theme::global_mut(cx).font_family = "Geist Mono".into();
-            Theme::global_mut(cx).radius = px(0.);
-            Theme::global_mut(cx).apply_config(&theme);
-            Theme::sync_base(cx);
-        }
+        settings::SettingsManager::apply(cx);
 
         let bound = Bounds::centered(None, size(px(1280.), px(720.)), cx);
         cx.spawn(async move |cx| {

@@ -2,11 +2,13 @@ use std::collections::HashSet;
 
 use crate::models::{DocumentWithCustomers, ProjectDocumentStats};
 use gpui_kit::{
-    App, AppContext, Context, Entity, EventEmitter, ParentElement, Render, Styled, Window,
+    App, AppContext, Context, Entity, EventEmitter, InteractiveElement, ParentElement, Render,
+    StatefulInteractiveElement, Styled, Window,
     base::StyledExt,
-    component::{ActiveTheme, IconName, button::Button},
-    div,
+    component::ActiveTheme,
+    div, px,
 };
+use shared::ui::{caption, rail_card};
 
 pub mod events {
     use super::*;
@@ -68,7 +70,21 @@ impl Render for ProjectDocumentsListView {
         cx: &mut Context<Self>,
     ) -> impl gpui_kit::prelude::IntoElement {
         let projects = self.projects.clone();
-        let _theme = cx.theme().clone();
+        let theme = cx.theme().clone();
+
+        let stat = |label: &'static str, value: i64| {
+            div()
+                .v_flex()
+                .gap_1()
+                .items_end()
+                .child(caption(label, &theme))
+                .child(
+                    div()
+                        .child(format!("{value:02}"))
+                        .font_family("Geist Mono")
+                        .text_color(theme.foreground),
+                )
+        };
 
         div()
             .v_flex()
@@ -76,43 +92,49 @@ impl Render for ProjectDocumentsListView {
             .h_full()
             .p_4()
             .gap_4()
-            .child(div().child("Projects Documents").text_xl())
+            .child(caption("Projects documents", &theme))
             .children(projects.into_iter().map(|stats| {
                 let p = stats.clone();
-                Button::new(format!("doc-card-{}", stats.project_id))
-                    .w_full()
-                    .p_4()
-                    .gap_2()
-                    .min_h_20()
-                    .on_click(cx.listener(move |_this, _, _window, cx| {
-                        cx.emit(events::DocumentListEvents::OpenProject(p.clone()));
-                    }))
-                    .child(
+                rail_card(
+                    false,
                         div()
                             .h_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .p_3()
+                            .gap_3()
                             .justify_between()
-                            .w_full()
-                            .child(div().child(stats.project_name.clone()))
+                            .items_center()
+                            .child(
+                                div()
+                                    .v_flex()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .gap_1()
+                                    .child(caption(format!("Project #{}", stats.project_id), &theme))
+                                    .child(
+                                        div()
+                                            .child(stats.project_name.clone())
+                                            .text_lg()
+                                            .text_color(theme.foreground),
+                                    ),
+                            )
                             .child(
                                 div()
                                     .h_flex()
-                                    .gap_4()
-                                    .child(
-                                        div()
-                                            .h_flex()
-                                            .gap_2()
-                                            .child(IconName::FileText)
-                                            .child(format!("{} docs", stats.document_count)),
-                                    )
-                                    .child(
-                                        div()
-                                            .h_flex()
-                                            .gap_2()
-                                            .child(IconName::User)
-                                            .child(format!("{} customers", stats.customer_count)),
-                                    ),
+                                    .flex_none()
+                                    .gap_6()
+                                    .child(stat("Docs", stats.document_count))
+                                    .child(stat("Customers", stats.customer_count)),
                             ),
-                    )
+                    &theme,
+                )
+                .id(format!("doc-card-{}", stats.project_id))
+                .cursor_pointer()
+                .hover(|f| f.border_color(theme.selection))
+                .on_click(cx.listener(move |_this, _, _window, cx| {
+                    cx.emit(events::DocumentListEvents::OpenProject(p.clone()));
+                }))
             }))
     }
 }

@@ -4,6 +4,7 @@ use gpui_kit::{
         button::{Button, ButtonVariants},
         input::{Input, InputEvent, InputState},
         scroll::ScrollableElement,
+        slider::{Slider, SliderEvent, SliderState, SliderValue},
         ActiveTheme, Icon, IconName, Sizable, Theme, ThemeMode, ThemeRegistry,
     },
     div, px,
@@ -15,6 +16,8 @@ use gpui_kit::{
 pub struct SettingsView {
     query_input: Entity<InputState>,
     query: String,
+    radius_slider: Entity<SliderState>,
+    current_radius: f32,
 }
 
 impl SettingsView {
@@ -39,9 +42,38 @@ impl SettingsView {
         })
         .detach();
 
+        let current_radius = f32::from(cx.theme().radius);
+        let radius_slider = cx.new(|_| {
+            SliderState::new()
+                .min(0.0)
+                .max(20.0)
+                .step(1.0)
+                .default_value(current_radius)
+        });
+
+        cx.subscribe(&radius_slider, |this, _slider, event: &SliderEvent, cx| {
+            let new_val = match event {
+                SliderEvent::Change(SliderValue::Single(v)) => *v,
+                SliderEvent::Release(SliderValue::Single(v)) => *v,
+                _ => return,
+            };
+            this.current_radius = new_val;
+            Theme::global_mut(cx).radius = px(new_val);
+            Theme::sync_base(cx);
+            cx.refresh_windows();
+            cx.notify();
+
+            if let SliderEvent::Release(_) = event {
+                crate::SettingsManager::save_current(cx);
+            }
+        })
+        .detach();
+
         Self {
             query_input,
             query: String::new(),
+            radius_slider,
+            current_radius,
         }
     }
 
@@ -166,11 +198,15 @@ impl SettingsView {
         };
 
         if let Some(config) = config {
-            Theme::global_mut(cx).font_family = "Geist Mono".into();
+            let radius = self.current_radius;
             Theme::global_mut(cx).apply_config(&config);
+            Theme::global_mut(cx).font_family = "Geist Mono".into();
+            Theme::global_mut(cx).radius = px(radius);
             Theme::sync_base(cx);
             window.refresh();
             cx.notify();
+
+            crate::SettingsManager::save_current(cx);
         }
     }
 
@@ -181,11 +217,106 @@ impl SettingsView {
             ThemeMode::Dark
         };
 
+        let radius = self.current_radius;
         Theme::change(next_mode, Some(window), cx);
         Theme::global_mut(cx).font_family = "Geist Mono".into();
+        Theme::global_mut(cx).radius = px(radius);
         Theme::sync_base(cx);
         window.refresh();
         cx.notify();
+
+        crate::SettingsManager::save_current(cx);
+    }
+
+    fn set_radius(&mut self, radius: f32, window: &mut Window, cx: &mut Context<Self>) {
+        self.current_radius = radius;
+        self.radius_slider.update(cx, |slider, cx| {
+            slider.set_value(radius, window, cx);
+        });
+        Theme::global_mut(cx).radius = px(radius);
+        Theme::sync_base(cx);
+        window.refresh();
+        cx.notify();
+
+        crate::SettingsManager::save_current(cx);
+    }
+
+    fn render_radius_preview(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = cx.theme();
+        h_flex()
+            .w_full()
+            .items_center()
+            .justify_between()
+            .p_3()
+            .rounded(theme.radius)
+            .bg(theme.background.opacity(0.6))
+            .border_1()
+            .border_color(theme.border)
+            .child(
+                h_flex()
+                    .items_center()
+                    .gap_3()
+                    .child(
+                        div()
+                            .size_10()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(theme.radius)
+                            .bg(theme.primary)
+                            .text_color(theme.primary_foreground)
+                            .child(Icon::new(IconName::Frame).size(px(18.))),
+                    )
+                    .child(
+                        v_flex()
+                            .gap_0p5()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_medium()
+                                    .text_color(theme.foreground)
+                                    .child("Live Radius Preview"),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child(format!(
+                                        "Controls and surfaces round by {:.0}px",
+                                        self.current_radius
+                                    )),
+                            ),
+                    ),
+            )
+            .child(
+                h_flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .px_3()
+                            .py_1p5()
+                            .rounded(theme.radius)
+                            .bg(theme.primary.opacity(0.15))
+                            .border_1()
+                            .border_color(theme.primary.opacity(0.3))
+                            .text_color(theme.primary)
+                            .text_xs()
+                            .font_medium()
+                            .child("Sample Badge"),
+                    )
+                    .child(
+                        div()
+                            .px_3()
+                            .py_1p5()
+                            .rounded(theme.radius)
+                            .bg(theme.secondary)
+                            .text_color(theme.secondary_foreground)
+                            .text_xs()
+                            .font_medium()
+                            .child("Sample Button"),
+                    ),
+            )
     }
 }
 
@@ -405,6 +536,118 @@ impl Render for SettingsView {
                                                     .child(self.color_swatch("Muted", theme.muted, theme.muted_foreground, cx)),
                                             ),
                                     ),
+                            )
+                            // Interface Roundness Card
+                            .child(
+                                v_flex()
+                                    .w_full()
+                                    .p_5()
+                                    .rounded_xl()
+                                    .bg(theme.popover)
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .gap_5()
+                                    // Section header
+                                    .child(
+                                        h_flex()
+                                            .items_center()
+                                            .justify_between()
+                                            .child(
+                                                h_flex()
+                                                    .items_center()
+                                                    .gap_2()
+                                                    .child(Icon::new(IconName::Frame).size(px(16.)))
+                                                    .child(
+                                                        div()
+                                                            .text_base()
+                                                            .font_semibold()
+                                                            .text_color(theme.foreground)
+                                                            .child("Interface Roundness"),
+                                                    ),
+                                            )
+                                            .child(
+                                                div()
+                                                    .text_xs()
+                                                    .font_semibold()
+                                                    .px_2p5()
+                                                    .py_1()
+                                                    .rounded_full()
+                                                    .bg(theme.muted)
+                                                    .text_color(theme.foreground)
+                                                    .child(format!("{:.0}px", self.current_radius)),
+                                            ),
+                                    )
+                                    .child(div().h(px(1.)).w_full().bg(theme.border))
+                                    // Presets row
+                                    .child(
+                                        v_flex()
+                                            .w_full()
+                                            .gap_2()
+                                            .child(
+                                                div()
+                                                    .text_xs()
+                                                    .font_semibold()
+                                                    .text_color(theme.muted_foreground)
+                                                    .child("PRESETS"),
+                                            )
+                                            .child(
+                                                h_flex()
+                                                    .w_full()
+                                                    .gap_2()
+                                                    .children(
+                                                        [
+                                                            (0.0, "Sharp (0px)"),
+                                                            (4.0, "Small (4px)"),
+                                                            (6.0, "Medium (6px)"),
+                                                            (8.0, "Large (8px)"),
+                                                            (12.0, "Round (12px)"),
+                                                            (16.0, "Extra (16px)"),
+                                                        ]
+                                                        .into_iter()
+                                                        .enumerate()
+                                                        .map(|(i, (preset_radius, label))| {
+                                                            let is_active = (self.current_radius - preset_radius).abs() < 0.5;
+                                                            Button::new(("radius-preset", i))
+                                                                .when(is_active, |b| b.primary())
+                                                                .when(!is_active, |b| b.secondary())
+                                                                .child(label)
+                                                                .on_click(cx.listener({
+                                                                    let r = preset_radius;
+                                                                    move |this, _event, window, cx| {
+                                                                        this.set_radius(r, window, cx);
+                                                                    }
+                                                                }))
+                                                        }),
+                                                    ),
+                                            ),
+                                    )
+                                    // Slider row
+                                    .child(
+                                        v_flex()
+                                            .w_full()
+                                            .gap_2p5()
+                                            .child(
+                                                h_flex()
+                                                    .items_center()
+                                                    .justify_between()
+                                                    .child(
+                                                        div()
+                                                            .text_xs()
+                                                            .font_semibold()
+                                                            .text_color(theme.muted_foreground)
+                                                            .child("FINE ADJUSTMENT (0 - 20px)"),
+                                                    )
+                                                    .child(
+                                                        div()
+                                                            .text_xs()
+                                                            .text_color(theme.muted_foreground)
+                                                            .child(format!("{:.0} px", self.current_radius)),
+                                                    ),
+                                            )
+                                            .child(Slider::new(&self.radius_slider).w_full()),
+                                    )
+                                    // Live preview
+                                    .child(self.render_radius_preview(cx)),
                             ),
                     ),
             )

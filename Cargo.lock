@@ -6688,7 +6688,11 @@ dependencies = [
 name = "settings"
 version = "0.1.0"
 dependencies = [
+ "directories",
  "gpui-kit",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

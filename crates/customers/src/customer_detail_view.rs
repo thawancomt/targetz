@@ -16,6 +16,7 @@ use shared::{
     customer_interaction::Interaction,
     db::DbPool,
     events::AppEvent,
+    ui::{fact_cell, section_frame},
 };
 
 use crate::{
@@ -34,7 +35,7 @@ pub struct CustomerDetailView {
     interaction_repository: InteractionRepository,
     create_interaction_view: Entity<CreateInteractionView>,
     pub edit_view: Entity<CustomerUpdateView>,
-    /// Projects and documents sections. Filled by the app shell so this crate
+    /// Projects and documents sections (stacked at the end). Filled by the app shell so this crate
     /// does not depend on `projects` or `documents`.
     extra_sections: Vec<AnyView>,
     on_customer_changed: Option<Box<dyn Fn(i64, &mut App) + 'static>>,
@@ -205,38 +206,23 @@ impl CustomerDetailView {
         });
     }
 
-    fn info_row(
+    fn fact_cell(
         &self,
-        icon: IconName,
         label: &'static str,
         value: Option<String>,
         cx: &gpui_kit::App,
     ) -> impl IntoElement {
-        div()
-            .flex()
-            .items_center()
-            .justify_between()
-            .p_3()
-            .border_b_1()
-            .border_color(cx.theme().border)
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .child(Icon::new(icon).text_color(cx.theme().muted_foreground))
-                    .child(
-                        div()
-                            .child(label)
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(cx.theme().accent_foreground),
-                    ),
-            )
-            .child(
-                div()
-                    .child(value.unwrap_or_else(|| "N/A".to_string()))
-                    .text_color(cx.theme().primary),
-            )
+        fact_cell(label, value, cx.theme())
+    }
+
+    fn section(
+        &self,
+        title: &'static str,
+        count: Option<usize>,
+        body: impl IntoElement,
+        theme: &Theme,
+    ) -> impl IntoElement {
+        section_frame(title, count, None, body, theme)
     }
 
     pub fn interaction_item(&self, interaction: Interaction, theme: &Theme) -> impl IntoElement {
@@ -251,183 +237,207 @@ impl CustomerDetailView {
             Tag::warning().child(interaction.status.as_str().to_string())
         };
 
-        v_flex()
+        let date = if interaction.interaction_date.is_empty() {
+            "missing date".to_string()
+        } else {
+            interaction.interaction_date.clone()
+        };
+        let (note, has_note) = match &interaction.note {
+            Some(note) => (note.replace('\n', " "), true),
+            None => ("No note left".to_string(), false),
+        };
+
+        // Left rail in the accent colour, like a log line.
+        div()
+            .flex()
             .w_full()
             .min_w_0()
             .overflow_hidden()
-            .p_3()
-            .gap_2()
             .border_1()
-            .border_color(theme.selection)
-            .bg(theme.accent)
-            // Linha de cabeçalho: data + tag lado a lado
+            .border_color(theme.border)
+            .child(div().w(px(3.)).flex_none().bg(if is_no_response {
+                theme.muted_foreground
+            } else {
+                theme.primary
+            }))
             .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .p_3()
+                    .gap_1()
                     .child(
                         div()
-                            .child(match interaction.interaction_date.clone().is_empty() {
-                                false => interaction.interaction_date.clone(),
-                                true => "Missing interaction date".to_string(),
-                            })
-                            .text_lg()
-                            .text_color(theme.accent_foreground),
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .child(
+                                div()
+                                    .child(date)
+                                    .font_family("Geist Mono")
+                                    .text_sm()
+                                    .text_color(theme.foreground),
+                            )
+                            .child(status_tag),
                     )
-                    .child(status_tag),
-            )
-            // Nota, com cor levemente atenuada quando ausente
-            .child(
-                div()
-                    .w_full()
-                    .min_w_0()
-                    .overflow_hidden()
-                    .child("Note: ")
-                    .child(match &interaction.note {
-                        Some(note) => note.replace('\n', " "),
-                        None => "No note left".to_string(),
-                    }),
+                    .child(div().w_full().min_w_0().overflow_hidden().child(note).text_color(
+                        if has_note {
+                            theme.foreground
+                        } else {
+                            theme.muted_foreground
+                        },
+                    )),
             )
     }
 }
 
 impl Render for CustomerDetailView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        match self.customer.clone() {
-            Some(customer) => {
-                let customer_id = customer.id;
+        let Some(customer) = self.customer.clone() else {
+            return div().into_any_element();
+        };
+        let customer_id = customer.id;
+        let theme = cx.theme().clone();
+
+        let interactions_body = match self.interactions.as_ref() {
+            Some(interactions) if !interactions.is_empty() => v_flex()
+                .w_full()
+                .min_w_0()
+                .gap_2()
+                .children(
+                    interactions
+                        .iter()
+                        .map(|ii| self.interaction_item(ii.clone(), &theme)),
+                )
+                .into_any_element(),
+            Some(_) => div()
+                .child("No interactions yet.")
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .into_any_element(),
+            None => div()
+                .child("Loading…")
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .into_any_element(),
+        };
+        let interaction_count = self.interactions.as_ref().map(|i| i.len());
+
+        let header = div()
+            .flex()
+            .justify_between()
+            .items_start()
+            .gap_4()
+            .child(
                 v_flex()
-                    .id("main-content")
-                    .h_full()
-                    .overflow_y_scrollbar()
-                    .size_full()
+                    .flex_1()
                     .min_w_0()
-                    .p_6()
-                    .gap_6()
-                    .bg(cx.theme().background)
-                    // Header / Perfil
+                    .gap_2()
+                    .child(
+                        div()
+                            .child(format!("CUSTOMER #{}", customer.id))
+                            .font_family("Geist Mono")
+                            .text_xs()
+                            .text_color(theme.muted_foreground),
+                    )
+                    .child(
+                        div()
+                            .child(customer.name.clone())
+                            .text_3xl()
+                            .text_color(theme.foreground),
+                    )
                     .child(
                         div()
                             .flex()
-                            .justify_between()
-                            .items_start()
-                            .border_b_1()
-                            .border_color(cx.theme().border)
-                            .pb_4()
-                            .child(
-                                v_flex()
-                                    .gap_1()
-                                    .child(
-                                        div()
-                                            .child(customer.name.clone())
-                                            .text_3xl()
-                                            .text_color(cx.theme().foreground),
-                                    )
-                                    .child(
-                                        div()
-                                            .child(format!("ID #{}", customer.id))
-                                            .font_family("Geist Mono")
-                                            .text_sm()
-                                            .text_color(cx.theme().muted_foreground),
-                                    )
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .gap_2()
-                                            .child(Tag::secondary().child(if customer.is_client {
-                                                "Active Client"
-                                            } else {
-                                                "Prospect"
-                                            }))
-                                            .child(Tag::secondary().child(if customer.contacted {
-                                                "Contacted"
-                                            } else {
-                                                "Pending Contact"
-                                            })),
-                                    ),
-                            )
-                            .child(
-                                Button::new("edit-customer")
-                                    .secondary()
-                                    .label("Edit")
-                                    .on_click(cx.listener(|this, _e, window, cx| {
-                                        this.open_edit_dialog(window, cx);
-                                        cx.notify();
-                                    })),
-                            ),
+                            .gap_2()
+                            .child(Tag::secondary().child(if customer.is_client {
+                                "Active Client"
+                            } else {
+                                "Prospect"
+                            }))
+                            .child(Tag::secondary().child(if customer.contacted {
+                                "Contacted"
+                            } else {
+                                "Pending Contact"
+                            })),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .gap_2()
+                    .flex_none()
+                    .child(
+                        Button::new("edit-customer")
+                            .secondary()
+                            .label("Edit")
+                            .on_click(cx.listener(|this, _e, window, cx| {
+                                this.open_edit_dialog(window, cx);
+                                cx.notify();
+                            })),
                     )
                     .child(
-                        v_flex()
-                            .w_full()
-                            .border_1()
-                            .border_color(cx.theme().border)
-                            .rounded_md()
-                            .child(self.info_row(
-                                IconName::Calendar,
-                                "Email",
-                                Some(customer.email),
-                                cx,
-                            ))
-                            .child(self.info_row(
-                                IconName::PanelRight,
-                                "Phone Number",
-                                Some(customer.phone_number),
-                                cx,
-                            ))
-                            .child(self.info_row(IconName::Map, "Address", customer.address, cx))
-                            .child(self.info_row(IconName::Globe, "Website", customer.site_url, cx))
-                            .child(self.info_row(
-                                IconName::ExternalLink,
-                                "Instagram",
-                                customer.instagram_url,
-                                cx,
-                            )),
-                    )
-                    .child(
-                        div().child(Button::new("Delete customer").label("Delete").on_click(
-                            cx.listener(move |view, _e, _window, cx| {
+                        Button::new("delete-customer")
+                            .danger()
+                            .label("Delete")
+                            .on_click(cx.listener(move |view, _e, _window, cx| {
                                 let repo = view.repository.clone();
                                 cx.spawn(async move |this, cx| {
-                                    let _ = match repo.delete_customer(customer_id).await {
-                                        Ok(_) => {
-                                            let _ = this.update(cx, |_this, cx| {
-                                                cx.emit(AppEvent::DeletedCustomer(customer_id));
-                                            });
-                                        }
-                                        Err(_) => {}
-                                    };
+                                    if repo.delete_customer(customer_id).await.is_ok() {
+                                        let _ = this.update(cx, |_this, cx| {
+                                            cx.emit(AppEvent::DeletedCustomer(customer_id));
+                                        });
+                                    }
                                 })
                                 .detach();
-                            }),
-                        )),
-                    )
-                    .child({
-                        match self.interactions.as_ref() {
-                            Some(interactions) => {
-                                let theme = cx.theme();
-                                div()
-                                    .child(div().child("Recent interactions").text_lg())
-                                    .flex()
-                                    .flex_col()
-                                    .gap_2()
-                                    .min_w_0()
-                                    .w_full()
-                                    .children(
-                                        interactions
-                                            .iter()
-                                            .map(|ii| self.interaction_item(ii.clone(), theme)),
-                                    )
-                                    .into_any_element()
-                            }
-                            None => div().into_any_element(),
-                        }
-                    })
-                    .child(self.create_interaction_view.clone().into_any_element())
-                    .children(self.extra_sections.iter().cloned())
-                    .into_any_element()
-            }
-            None => div().into_any_element(),
-        }
+                            })),
+                    ),
+            );
+
+        // Contact grid: two cells per row, hairline borders.
+        let contact = v_flex()
+            .w_full()
+            .border_t_1()
+            .border_l_1()
+            .border_color(theme.border)
+            .child(
+                div()
+                    .flex()
+                    .child(self.fact_cell("Email", Some(customer.email.clone()), cx))
+                    .child(self.fact_cell("Phone", Some(customer.phone_number.clone()), cx)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .child(self.fact_cell("Website", customer.site_url.clone(), cx))
+                    .child(self.fact_cell("Instagram", customer.instagram_url.clone(), cx)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .child(self.fact_cell("Address", customer.address.clone(), cx)),
+            );
+
+        v_flex()
+            .id("main-content")
+            .h_full()
+            .overflow_y_scrollbar()
+            .size_full()
+            .min_w_0()
+            .p_6()
+            .gap_6()
+            .bg(theme.background)
+            .child(
+                div()
+                    .pb_4()
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .child(header),
+            )
+            .child(contact)
+            .child(self.section("Interactions", interaction_count, interactions_body, &theme))
+            .child(self.create_interaction_view.clone())
+            .children(self.extra_sections.iter().cloned())
+            .into_any_element()
     }
 }
