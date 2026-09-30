@@ -1,3 +1,6 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use directories::ProjectDirs;
 use gpui_kit::{
     AppContext, Bounds, SharedString, TitlebarOptions, WindowBounds, WindowOptions, block_on,
     component::Root,
@@ -8,7 +11,7 @@ use sqlx::{
     Pool, Sqlite,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 use crate::app::AppShell;
 pub mod app;
@@ -25,33 +28,45 @@ enum AppError {
 
 async fn get_db() -> Result<Pool<Sqlite>, AppError> {
     dotenv::dotenv().ok();
-    let url = std::env::var("DATABASE_URL")
-        .or_else(|_| dotenv::var("DATABASE_URL"))
-        .unwrap_or_else(|_| {
-            if std::path::Path::new("todos.db").exists() {
-                "sqlite://todos.db".to_string()
-            } else if let Ok(home) = std::env::var("HOME") {
-                let dir = std::path::PathBuf::from(home).join(".local/share/targetz");
-                let _ = std::fs::create_dir_all(&dir);
-                format!("sqlite://{}", dir.join("todos.db").display())
-            } else {
-                "sqlite://todos.db".to_string()
-            }
-        });
 
-    let options = SqliteConnectOptions::from_str(&url)
-        .map_err(|e| AppError::StartDatabaseError(e.to_string()))?
-        .create_if_missing(true)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-        .busy_timeout(Duration::from_secs(5));
+    let custom_url = std::env::var("DATABASE_URL").ok().or_else(|| dotenv::var("DATABASE_URL").ok());
 
-    let pool = SqlitePoolOptions::new()
-        // era max_connections(1) — vale subir pra permitir leitores
-        // concorrentes junto do único writer que o WAL mode já suporta
-        .max_connections(5)
-        .connect_with(options)
-        .await
-        .map_err(|e| AppError::StartDatabaseError(e.to_string()))?;
+    let pool = if let Some(url) = custom_url {
+        use std::str::FromStr;
+        let options = SqliteConnectOptions::from_str(&url)
+            .map_err(|e| AppError::StartDatabaseError(e.to_string()))?
+            .create_if_missing(true)
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+            .busy_timeout(Duration::from_secs(5));
+
+        SqlitePoolOptions::new()
+            .max_connections(5)
+            .connect_with(options)
+            .await
+            .map_err(|e| AppError::StartDatabaseError(e.to_string()))?
+    } else {
+        let db_path = if std::path::Path::new("todos.db").exists() {
+            std::path::PathBuf::from("todos.db")
+        } else if let Some(dirs) = ProjectDirs::from("software", "whatever", "targetz") {
+            let data_dir = dirs.data_dir();
+            let _ = std::fs::create_dir_all(data_dir);
+            data_dir.join("todos.db")
+        } else {
+            std::path::PathBuf::from("todos.db")
+        };
+
+        let options = SqliteConnectOptions::new()
+            .filename(&db_path)
+            .create_if_missing(true)
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+            .busy_timeout(Duration::from_secs(5));
+
+        SqlitePoolOptions::new()
+            .max_connections(5)
+            .connect_with(options)
+            .await
+            .map_err(|e| AppError::StartDatabaseError(e.to_string()))?
+    };
 
     sqlx::migrate!("../../migrations")
         .run(&pool)
