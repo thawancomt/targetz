@@ -36,7 +36,8 @@ pub struct ProjectDocumentDetailView {
     pub project_stats: Option<ProjectDocumentStats>,
     pub documents: Vec<DocumentWithCustomers>,
     data_dir: Option<PathBuf>,
-    is_under_loading: bool,
+    is_uploading: bool,
+    is_getting_customers: bool,
 }
 
 impl EventEmitter<events::DocumentDetailEvents> for ProjectDocumentDetailView {}
@@ -61,7 +62,8 @@ impl ProjectDocumentDetailView {
             data_dir: DocumentManager::default_data_dir()
                 .map_err(|e| eprintln!("{e}"))
                 .ok(),
-            is_under_loading: false,
+            is_uploading: false,
+            is_getting_customers: false,
         }
     }
 
@@ -102,6 +104,10 @@ impl ProjectDocumentDetailView {
     /// added. Refreshes the view and emits
     /// [`events::DocumentDetailEvents::DocumentsUploaded`] so counts update.
     pub fn get_customers(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_getting_customers {
+            return;
+        }
+
         let Some(project) = self.project_stats.clone() else {
             return;
         };
@@ -120,11 +126,15 @@ impl ProjectDocumentDetailView {
             }
         };
 
+        self.is_getting_customers = true;
+        cx.notify();
+
         cx.spawn_in(window, async move |this, cx| {
             discover_customers(&service, pool, project.project_id, doc_ids).await;
 
             let result = service.get_project_documents(project.project_id).await;
             let _ = this.update_in(cx, |this, window, cx| {
+                this.is_getting_customers = false;
                 this.apply_documents(project.project_id, result, "Customers updated", window, cx);
             });
         })
@@ -171,6 +181,10 @@ impl ProjectDocumentDetailView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.is_uploading {
+            return;
+        }
+
         let pool = cx.global::<DbPool>().0.clone();
 
         let document_manager = DocumentManager::new(pool.clone());
@@ -184,12 +198,19 @@ impl ProjectDocumentDetailView {
 
         match document_manager {
             Ok(service) => {
+                self.is_uploading = true;
+                cx.notify();
+
                 cx.spawn_in(window, async move |this, cx| {
                     let upload_result = service
                         .upload_documents(&doc_paths, project.project_id)
                         .await;
 
                     if upload_result.successes.is_empty() {
+                        let _ = this.update_in(cx, |this, _window, cx| {
+                            this.is_uploading = false;
+                            cx.notify();
+                        });
                         return;
                     }
 
@@ -198,6 +219,7 @@ impl ProjectDocumentDetailView {
 
                     let result = service.get_project_documents(project.project_id).await;
                     let _ = this.update_in(cx, |this, window, cx| {
+                        this.is_uploading = false;
                         this.apply_documents(
                             project.project_id,
                             result,
@@ -289,27 +311,26 @@ impl Render for ProjectDocumentDetailView {
                             .gap_2()
                             .child(
                                 Button::new("get-customers-btn")
-                                    .disabled(self.is_under_loading)
+                                    .disabled(self.is_getting_customers)
                                     .when_else(
-                                        self.is_under_loading,
+                                        self.is_getting_customers,
                                         |this| this.label("Loading..."),
                                         |this| this.label("Get customers").child(IconName::User),
                                     )
                                     .on_click(cx.listener(|this, _, window, cx| {
-                                        this.is_under_loading = true;
-                                        cx.notify();
                                         this.get_customers(window, cx);
-
-                                        this.is_under_loading = false;
-                                        cx.notify()
                                     })),
                             )
                             .child(
                                 Button::new("upload-doc-btn")
                                     .primary()
-                                    .label("Upload Document")
-                                    .child(IconName::Plus)
-                                    .on_click(cx.listener(|this, _, window, cx| {
+                                    .disabled(self.is_uploading)
+                                    .when_else(
+                                        self.is_uploading,
+                                        |this| this.label("Uploading..."),
+                                        |this| this.label("Upload Document").child(IconName::Plus),
+                                    )
+                                    .on_click(cx.listener(|_this, _, window, cx| {
                                         cx.spawn_in(window, async move |this, cx| {
                                             let files = rfd::AsyncFileDialog::new()
                                                 .add_filter("Documents", &["pdf", "txt", "html"])
@@ -327,11 +348,7 @@ impl Render for ProjectDocumentDetailView {
                                                     .collect();
 
                                                 let _ = this.update_in(cx, |this, window, cx| {
-                                                    this.is_under_loading = true;
-                                                    cx.notify();
                                                     this.upload_documents(paths, window, cx);
-                                                    this.is_under_loading = false;
-                                                    cx.notify();
                                                 });
                                             }
                                         })
