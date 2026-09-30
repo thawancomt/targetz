@@ -1,5 +1,5 @@
 use gpui_kit::{
-    App, AppContext, Context, Entity, IntoElement, ParentElement, Styled, Window,
+    AnyView, App, AppContext, Context, Entity, IntoElement, ParentElement, Styled, Window,
     component::{
         ActiveTheme, IndexPath, WindowExt,
         list::{ListDelegate, ListItem, ListState},
@@ -189,6 +189,10 @@ pub struct ProjectDetailView {
     pub show_history: bool,
     pub stakeholders: Option<Vec<Stakeholder>>,
     pub edit_view: Entity<ProjectUpdateView>,
+    /// Documents and mentioned customers. Filled by the app shell so this crate
+    /// does not depend on `documents`.
+    documents_section: Option<AnyView>,
+    on_project_changed: Option<Box<dyn Fn(i64, &mut Window, &mut App) + 'static>>,
 }
 
 impl ProjectDetailView {
@@ -202,6 +206,8 @@ impl ProjectDetailView {
             project,
             history: None,
             history_list,
+            documents_section: None,
+            on_project_changed: None,
             show_history: false,
             stakeholders: Some(Vec::new()),
             relations_view,
@@ -234,8 +240,28 @@ impl ProjectDetailView {
         cx.notify();
     }
 
+    /// Installs the documents section and the hook that reloads it when the
+    /// open project changes. The hook is owned by the app shell.
+    pub fn set_documents_section(
+        &mut self,
+        section: AnyView,
+        on_project_changed: impl Fn(i64, &mut Window, &mut App) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.documents_section = Some(section);
+        self.on_project_changed = Some(Box::new(on_project_changed));
+        cx.notify();
+    }
+
+    pub fn documents_section(&self) -> Option<AnyView> {
+        self.documents_section.clone()
+    }
+
     pub fn set_project(&mut self, project: Project, window: &mut Window, cx: &mut Context<Self>) {
         self.project = Some(project.clone());
+        if let Some(on_project_changed) = self.on_project_changed.as_ref() {
+            on_project_changed(project.id, window, cx);
+        }
         self.hydrate_history(cx);
         self.hydrate_stakeholders(project.id, cx);
 

@@ -9,7 +9,9 @@ pub use document_manager::{
     UploadDocumentsResult, UploadFailure,
 };
 pub use extractor::{DocumentExtractorService, ExtractorError, pdf_extractor::PdfExtractor};
-pub use models::{CustomerDocumentStatus, Document, ProjectDocument, ProjectDocumentCustomer};
+pub use models::{
+    CustomerDocumentStatus, Document, MentionedCustomer, ProjectDocument, ProjectDocumentCustomer,
+};
 pub use relation_manager::{
     DocumentProcessingError, RelationManager, RelationManagerError, RelationManagerEvent,
     RelationsResult,

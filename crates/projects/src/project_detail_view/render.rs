@@ -129,6 +129,9 @@ impl Render for ProjectDetailView {
                     }),
             )
             .child(div().p_2().child(div().child(self.relations_view.clone())))
+            .when_some(self.documents_section(), |parent, section| {
+                parent.child(div().p_2().child(section))
+            })
             .when(show_save, |d| {
                 d.child(
                     div().p_2().child(

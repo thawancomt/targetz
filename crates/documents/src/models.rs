@@ -24,6 +24,25 @@ pub struct ProjectDocumentCustomer {
     pub status: String,
 }
 
+/// One detected mention: a customer named in one document of a project.
+///
+/// Confirmation is per `(project, customer, document)`, not once per customer.
+/// A stakeholder on the project is a different relation and is not represented here.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct MentionedCustomer {
+    pub customer_id: i64,
+    pub customer_name: String,
+    pub document_id: i64,
+    pub document_name: String,
+    pub status: String,
+}
+
+impl MentionedCustomer {
+    pub fn is_confirmed(&self) -> bool {
+        self.status == CustomerDocumentStatus::Confirmed.as_str()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CustomerDocumentStatus {
     NotConfirmed,

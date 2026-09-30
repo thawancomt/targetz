@@ -2,7 +2,9 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-use documents::{DocumentManager, ReplaceDocumentError, UploadDocumentError};
+use documents::{
+    CustomerDocumentStatus, DocumentManager, ReplaceDocumentError, UploadDocumentError,
+};
 use sqlx::Pool;
 use sqlx::Sqlite;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -313,4 +315,64 @@ async fn test_delete_document_removes_pivots_and_physical_file() {
 
     // Physical file deleted
     assert!(!physical_path.exists());
+}
+
+#[tokio::test]
+async fn test_mentioned_customers_list_and_confirm() {
+    let pool = setup_test_db().await;
+    let data_temp = tempdir().unwrap();
+    let source_temp = tempdir().unwrap();
+
+    sqlx::query!("INSERT INTO projects (id, name, current_version) VALUES (1, 'Project 1', '1.0')")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    sqlx::query!(
+        "INSERT INTO customers (id, name, email, phone_number) VALUES (10, 'Cust A', 'a@test.com', '912345678')"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let doc_mgr = DocumentManager::with_data_dir(pool.clone(), data_temp.path().to_path_buf())
+        .expect("Failed to init DocumentManager");
+
+    let file = create_temp_file(&source_temp, "brief.txt", b"Mentions Cust A");
+    let doc = doc_mgr
+        .upload_documents(&[file], 1)
+        .await
+        .successes
+        .into_iter()
+        .next()
+        .unwrap();
+
+    sqlx::query!(
+        "INSERT INTO project_document_customer (project_id, customer_id, document_id, status) VALUES (1, 10, ?, 'not_confirmed')",
+        doc.id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let mentions = doc_mgr.get_mentioned_customers(1).await.unwrap();
+    assert_eq!(mentions.len(), 1);
+    assert_eq!(mentions[0].customer_name, "Cust A");
+    assert_eq!(mentions[0].document_name, "brief.txt");
+    assert!(!mentions[0].is_confirmed());
+
+    let updated = doc_mgr
+        .set_customer_document_status(1, 10, doc.id, CustomerDocumentStatus::Confirmed)
+        .await
+        .unwrap();
+    assert!(updated);
+
+    let mentions = doc_mgr.get_mentioned_customers(1).await.unwrap();
+    assert!(mentions[0].is_confirmed());
+
+    let missing = doc_mgr
+        .set_customer_document_status(1, 99, doc.id, CustomerDocumentStatus::NotConfirmed)
+        .await
+        .unwrap();
+    assert!(!missing);
 }

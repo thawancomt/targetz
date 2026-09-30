@@ -21,8 +21,9 @@ use documents::{
     document_manager::DocumentManager,
     ui::{
         project_documents_list_view::ProjectDocumentsListView,
+        project_documents_section::ProjectDocumentsSection,
         tab_documents_view::TabDocumentsView,
-    }
+    },
 };
 use settings::settings_view::SettingsView;
 use shared::{db::DbPool, events::AppEvent, AppTab};
@@ -103,6 +104,24 @@ impl AppShell {
 
         let project_list_view = ProjectsListView::view(window, cx);
         let project_tab_view = TabProjectsView::view(window, cx, project_list_view.clone());
+        let documents_section = ProjectDocumentsSection::view(window, cx);
+        let documents_section_for_detail = documents_section.clone();
+        project_tab_view.update(cx, |tab, cx| {
+            tab.project_detail_view.update(cx, |detail, cx| {
+                detail.set_documents_section(
+                    documents_section_for_detail.clone().into(),
+                    {
+                        let section = documents_section_for_detail.clone();
+                        move |project_id, _window, cx| {
+                            section.update(cx, |section, cx| {
+                                section.set_project(project_id, cx);
+                            });
+                        }
+                    },
+                    cx,
+                );
+            });
+        });
         let documents_list_view = ProjectDocumentsListView::view(window, cx);
         let documents_tab_view = TabDocumentsView::view(window, cx, documents_list_view.clone());
         let home_view = HomeView::view(window, cx);

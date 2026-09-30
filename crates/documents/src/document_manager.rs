@@ -874,4 +874,62 @@ impl DocumentManager {
         .await?;
         Ok(docs)
     }
+
+    /// Customers detected in this project's documents, one row per document mention.
+    ///
+    /// This is not the stakeholder list. A customer can be mentioned here and
+    /// still be absent from `project_customer`.
+    pub async fn get_mentioned_customers(
+        &self,
+        project_id: i64,
+    ) -> Result<Vec<crate::models::MentionedCustomer>, sqlx::Error> {
+        let rows = sqlx::query_as!(
+            crate::models::MentionedCustomer,
+            r#"
+            SELECT
+                c.id as customer_id,
+                c.name as customer_name,
+                d.id as document_id,
+                d.original_name as document_name,
+                pdc.status as status
+            FROM project_document_customer pdc
+            INNER JOIN customers c ON c.id = pdc.customer_id
+            INNER JOIN documents d ON d.id = pdc.document_id
+            WHERE pdc.project_id = ?
+            ORDER BY c.name ASC, d.original_name ASC
+            "#,
+            project_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// Sets confirmation for one document mention. Does not insert a row.
+    ///
+    /// Discovery owns insertion (`not_confirmed`). This only flips an existing
+    /// link between `not_confirmed` and `confirmed`.
+    pub async fn set_customer_document_status(
+        &self,
+        project_id: i64,
+        customer_id: i64,
+        document_id: i64,
+        status: crate::models::CustomerDocumentStatus,
+    ) -> Result<bool, sqlx::Error> {
+        let status = status.as_str();
+        let result = sqlx::query!(
+            r#"
+            UPDATE project_document_customer
+            SET status = ?
+            WHERE project_id = ? AND customer_id = ? AND document_id = ?
+            "#,
+            status,
+            project_id,
+            customer_id,
+            document_id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
 }
